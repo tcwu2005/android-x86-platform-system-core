@@ -130,6 +130,8 @@ static struct perms_ devperms[] = {
     { "/dev/qmi0",          0640,   AID_RADIO,      AID_RADIO,      0 },
     { "/dev/qmi1",          0640,   AID_RADIO,      AID_RADIO,      0 },
     { "/dev/qmi2",          0640,   AID_RADIO,      AID_RADIO,      0 },
+    { "/dev/video0",        0660,   AID_ROOT,       AID_CAMERA,     1 },
+    { "/dev/snd/",          0664,   AID_SYSTEM,     AID_AUDIO,      1 },
     { NULL, 0, 0, 0, 0 },
 };
 
