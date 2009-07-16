@@ -148,9 +148,6 @@ static struct perms_ devperms[] = {
     { "/dev/htc-acoustic",  0660,   AID_SYSTEM,     AID_AUDIO,      0 },
     { "/dev/vdec",          0660,   AID_SYSTEM,     AID_AUDIO,      0 },
     { "/dev/q6venc",        0660,   AID_SYSTEM,     AID_AUDIO,      0 },
-    { "/dev/snd/dsp",       0660,   AID_SYSTEM,     AID_AUDIO,      0 },
-    { "/dev/snd/dsp1",      0660,   AID_SYSTEM,     AID_AUDIO,      0 },
-    { "/dev/snd/mixer",     0660,   AID_SYSTEM,     AID_AUDIO,      0 },
     { "/dev/smd0",          0640,   AID_RADIO,      AID_RADIO,      0 },
     { "/dev/qemu_trace",    0666,   AID_SYSTEM,     AID_SYSTEM,     0 },
     { "/dev/qmi",           0640,   AID_RADIO,      AID_RADIO,      0 },
@@ -161,6 +158,7 @@ static struct perms_ devperms[] = {
     { "/dev/ts0710mux",     0640,   AID_RADIO,      AID_RADIO,      1 },
     { "/dev/ppp",           0660,   AID_RADIO,      AID_VPN,        0 },
     { "/dev/tun",           0640,   AID_VPN,        AID_VPN,        0 },
+    { "/dev/video",         0660,   AID_ROOT,       AID_CAMERA,     1 },
     { NULL, 0, 0, 0, 0 },
 };
 
