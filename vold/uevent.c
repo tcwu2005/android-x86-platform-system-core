@@ -282,19 +282,31 @@ static char *get_uevent_param(struct uevent *event, char *param_name)
 static int handle_powersupply_event(struct uevent *event)
 {
     char *ps_type = get_uevent_param(event, "POWER_SUPPLY_TYPE");
-    char name[PROPERTY_VALUE_MAX];
-    int nlen ;
+    char *cap_buf;
     double ps_cap;
     double ps_cap_full = 0;
     double cap;
     int capacity;
 
     if (!strcasecmp(ps_type, "battery")) {
-        property_get(POWER_UEVENT_NAME_CHARGE_NOW,name, "POWER_SUPPLY_CAPACITY");
-        ps_cap = atof(get_uevent_param(event, name));
-        nlen = property_get(POWER_UEVENT_NAME_CHARGE_FULL, name, NULL);
-        if (nlen > 0)
-            ps_cap_full = atof(get_uevent_param(event, name));
+        cap_buf = get_uevent_param(event,"POWER_SUPPLY_CHARGE_NOW");
+        if (!cap_buf) {
+            cap_buf = get_uevent_param(event,"POWER_SUPPLY_ENERGY_NOW");
+            if (!cap_buf) {
+                LOGE("Unsupport power supply energy now uevent found");
+                return 0;
+            }
+        }
+        ps_cap = atof(cap_buf);
+        cap_buf = get_uevent_param(event,"POWER_SUPPLY_CHARGE_FULL");
+        if (!cap_buf) {
+            cap_buf = get_uevent_param(event,"POWER_SUPPLY_ENERGY_FULL");
+            if (!cap_buf) {
+                LOGE("Unsupport power supply energy full uevent found");
+                return 0;
+            }
+        }
+        ps_cap_full = atof(cap_buf);
         if (ps_cap_full) {
             cap = (ps_cap/ps_cap_full)*100;
             capacity = (int)cap;
