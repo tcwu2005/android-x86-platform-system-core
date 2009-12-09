@@ -428,6 +428,8 @@ static void import_kernel_nv(char *name, int in_qemu)
 
     if (!in_qemu)
     {
+        if (!strncmp(name,"androidboot_",12))
+            name[11] = '.';
         /* on a real device, white-list the kernel options */
         if (!strcmp(name,"qemu")) {
             strlcpy(qemu, value, sizeof(qemu));
