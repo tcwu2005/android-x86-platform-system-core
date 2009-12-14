@@ -17,7 +17,9 @@ endif
 # to run the dex pre-optimization *in* the emulator. So keep the file until
 # we are capable of running dex preopt on the host.
 #
+ifneq ($(TARGET_ARCH),x86)
 copy_from += etc/init.goldfish.sh
+endif
 
 copy_to := $(addprefix $(TARGET_OUT)/,$(copy_from))
 copy_from := $(addprefix $(LOCAL_PATH)/,$(copy_from))
@@ -42,10 +44,12 @@ endif
 # Just like /system/etc/init.goldfish.sh, the /init.godlfish.rc is here
 # to allow -user builds to properly run the dex pre-optimization pass in
 # the emulator.
+ifneq ($(TARGET_ARCH),x86)
 file := $(TARGET_ROOT_OUT)/init.goldfish.rc
 $(file) : $(LOCAL_PATH)/etc/init.goldfish.rc | $(ACP)
 	$(transform-prebuilt-to-target)
 ALL_PREBUILT += $(file)
+endif
 
 # create some directories (some are mount points)
 DIRS := $(addprefix $(TARGET_ROOT_OUT)/, \
