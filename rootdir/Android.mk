@@ -5,8 +5,11 @@ include $(CLEAR_VARS)
 
 copy_from := \
 	etc/dbus.conf \
-	etc/init.goldfish.sh \
 	etc/hosts
+
+ifneq ($(TARGET_ARCH),x86)
+copy_from += etc/init.goldfish.sh
+endif
 
 copy_to := $(addprefix $(TARGET_OUT)/,$(copy_from))
 copy_from := $(addprefix $(LOCAL_PATH)/,$(copy_from))
@@ -28,11 +31,12 @@ $(file) : $(LOCAL_PATH)/init.rc | $(ACP)
 ALL_PREBUILT += $(file)
 endif
 
+ifneq ($(TARGET_ARCH),x86)
 file := $(TARGET_ROOT_OUT)/init.goldfish.rc
 $(file) : $(LOCAL_PATH)/etc/init.goldfish.rc | $(ACP)
 	$(transform-prebuilt-to-target)
 ALL_PREBUILT += $(file)
-	
+endif
 
 # create some directories (some are mount points)
 DIRS := $(addprefix $(TARGET_ROOT_OUT)/, \
