@@ -34,7 +34,13 @@ int format_partition(blkdev_t *part, char *type)
     char *devpath;
     int rc = -EINVAL;
  
+    if (!strcmp(type, FORMAT_TYPE_UNKNOWN)) {
+        LOGE("Unknown format type");
+        return -EIO;
+    }
+
     devpath = blkdev_get_devpath(part);
+    LOGI("format: %s", devpath);
 
     if (!strcmp(type, FORMAT_TYPE_FAT32)) {
         char *args[7];

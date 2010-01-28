@@ -61,4 +61,5 @@ void blkdev_destroy(blkdev_t *blk);
 
 int blkdev_get_num_pending_partitions(blkdev_t *blk);
 int blkdev_refresh(blkdev_t *blk);
+int block_align_minor(int type, int minor);
 #endif

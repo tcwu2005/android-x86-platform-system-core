@@ -26,13 +26,8 @@ typedef enum media_type {
     media_unknown,
     media_mmc,
     media_devmapper,
+    media_scsi,
 } media_type_t;
-
-/*
- * max 8 partitions per card
- */
-#define MMC_PARTS_PER_CARD (1<<3)
-#define ALIGN_MMC_MINOR(min) (min / MMC_PARTS_PER_CARD * MMC_PARTS_PER_CARD)
 
 typedef struct media {
     char           *devpath;

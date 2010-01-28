@@ -29,7 +29,7 @@
 #include "volmgr.h"
 #include "media.h"
 
-#define DEBUG_UEVENT 0
+#define DEBUG_UEVENT 1
 
 #define UEVENT_PARAMS_MAX 32
 
@@ -59,6 +59,7 @@ static int handle_battery_event(struct uevent *);
 static int handle_mmc_event(struct uevent *);
 static int handle_block_event(struct uevent *);
 static int handle_bdi_event(struct uevent *);
+static int handle_scsi_event(struct uevent *event);
 static void _cb_blkdev_ok_to_destroy(blkdev_t *dev);
 
 static struct uevent_dispatch dispatch_table[] = {
@@ -67,6 +68,7 @@ static struct uevent_dispatch dispatch_table[] = {
     { "mmc", handle_mmc_event },
     { "block", handle_block_event },
     { "bdi", handle_bdi_event },
+    { "scsi", handle_scsi_event },
     { "power_supply", handle_powersupply_event },
     { NULL, NULL }
 };
@@ -300,11 +302,11 @@ static int handle_block_event(struct uevent *event)
                  "/devices/virtual/",
                  strlen("/devices/virtual/"))) {
         n = 0;
-    } else if (!strcmp(get_uevent_param(event, "DEVTYPE"), "disk"))
+    } else if (!strcmp(get_uevent_param(event, "DEVTYPE"), "disk")) {
         n = 2;
-    else if (!strcmp(get_uevent_param(event, "DEVTYPE"), "partition"))
+    } else if (!strcmp(get_uevent_param(event, "DEVTYPE"), "partition")) {
         n = 3;
-    else {
+    } else {
         LOGE("Bad blockdev type '%s'", get_uevent_param(event, "DEVTYPE"));
         return -EINVAL;
     }
@@ -328,10 +330,8 @@ static int handle_block_event(struct uevent *event)
          * If there isn't a disk already its because *we*
          * are the disk
          */
-        if (media->media_type == media_mmc)
-            disk = blkdev_lookup_by_devno(maj, ALIGN_MMC_MINOR(min));
-        else
-            disk = blkdev_lookup_by_devno(maj, 0);
+        disk = blkdev_lookup_by_devno(maj, block_align_minor(media->media_type, min));
+        LOGI_IF(disk, " found disk device %d:%d", disk->major, disk->minor);
 
         if (!(blkdev = blkdev_create(disk,
                                      event->path,
@@ -389,6 +389,43 @@ static int handle_block_event(struct uevent *event)
         LOG_VOL("No handler implemented for action %d", event->action);
 #endif
     }
+    return 0;
+}
+
+static int handle_scsi_event(struct uevent *event)
+{
+    LOGI("Scsi event found");
+
+    if (event->action == action_add) {
+        media_t *media;
+        char *type;
+
+        if (!(media = media_create(event->path,
+                                   "scsi",
+                                   0,
+                                   media_scsi))) {
+            LOGE("Unable to allocate new media (%s)", strerror(errno));
+            return -1;
+        }
+        LOGI("New SCSI USB storage '%s' (serial %u) added @ %s", media->name,
+                  media->serial, media->devpath);
+    } else if (event->action == action_remove) {
+        media_t *media;
+
+        if (!(media = media_lookup_by_path(event->path, false))) {
+            LOGE("Unable to lookup media '%s'", event->path);
+            return -1;
+        }
+
+        LOGI("USB stroage '%s' (serial %u) @ %s removed", media->name,
+                  media->serial, media->devpath);
+        media_destroy(media);
+    } else {
+#if DEBUG_UEVENT
+        LOG_VOL("No handler implemented for action %d", event->action);
+#endif
+    }
+
     return 0;
 }
 

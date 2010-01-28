@@ -34,7 +34,7 @@
 #include "diskmbr.h"
 #include "media.h"
 
-#define DEBUG_BLKDEV 0
+#define DEBUG_BLKDEV 1
 
 static blkdev_list_t *list_root = NULL;
 
@@ -127,6 +127,9 @@ int blkdev_refresh(blkdev_t *blk)
                     LOGI("Partition table looks corrupt");
                     break;
                 }
+            } else {
+                LOGI(" The dp_flag does not match expect value:%d",
+                     part.dp_flag);
             }
             if (part.dp_size != 0 && part.dp_typ != 0)
                 blk->nr_parts++;
@@ -135,10 +138,7 @@ int blkdev_refresh(blkdev_t *blk)
         struct dos_partition part;
 	int part_no;
 
-        if (blk->media->media_type == media_mmc)
-            part_no = blk->minor % MMC_PARTS_PER_CARD -1;
-        else
-            part_no = blk->minor -1;
+        part_no = blk->minor - block_align_minor(blk->media->media_type, blk->minor) - 1;
 
         if (part_no < NDOSPART) {
             dos_partition_dec(block + DOSPARTOFF + part_no * sizeof(struct dos_partition), &part);
@@ -307,8 +307,10 @@ int blkdev_get_num_pending_partitions(blkdev_t *blk)
     struct blkdev_list *list_scan = list_root;
     int num = blk->nr_parts;
 
-    if (blk->type != blkdev_disk)
+    if (blk->type != blkdev_disk) {
+        LOGI("wrong blk->type want: %d, has: %d", blkdev_disk, blk->type);
         return -EINVAL;
+    }
 
     while (list_scan) {
         if (list_scan->dev->type != blkdev_partition)
@@ -327,3 +329,10 @@ int blkdev_get_num_pending_partitions(blkdev_t *blk)
     return num;
 }
 
+int block_align_minor(int type, int minor)
+{
+    /*
+     * Max partitons: 8 for MMC, 16 for SCSI. What else?
+     */
+    return minor & ((type == media_mmc) ? ~7 : (type == media_scsi) ? ~15 : 0);
+}
