@@ -100,6 +100,7 @@ static struct perms_ devperms[] = {
     { "/dev/android_adb_enable",   0660,   AID_ADB,        AID_ADB,        0 },
     { "/dev/ttyMSM0",       0600,   AID_BLUETOOTH,  AID_BLUETOOTH,  0 },
     { "/dev/ttyHS0",        0600,   AID_BLUETOOTH,  AID_BLUETOOTH,  0 },
+    { "/dev/ttyUSB",        0660,   AID_RADIO,      AID_RADIO,      1 },
     { "/dev/uinput",        0600,   AID_BLUETOOTH,  AID_BLUETOOTH,  0 },
     { "/dev/alarm",         0664,   AID_SYSTEM,     AID_RADIO,      0 },
     { "/dev/tty0",          0660,   AID_ROOT,       AID_SYSTEM,     0 },
