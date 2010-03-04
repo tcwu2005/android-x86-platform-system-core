@@ -5,7 +5,13 @@ include $(CLEAR_VARS)
 
 copy_from := \
 	etc/dbus.conf \
-	etc/hosts
+	etc/hosts \
+	etc/ppp/chap-secrets \
+	etc/ppp/gprs-connect-chat \
+	etc/ppp/init.gprs-pppd \
+	etc/ppp/ip-down \
+	etc/ppp/ip-up \
+	etc/ppp/peers/gprs
 
 ifneq ($(TARGET_ARCH),x86)
 copy_from += etc/init.goldfish.sh
