@@ -711,7 +711,11 @@ scriptexec(struct op *tp, const char **ap)
 	if (sh && *sh)
 		sh = search(sh, path, X_OK, NULL);
 	if (!sh || !*sh)
+#ifdef ANDROID
+		sh = "/system/bin/sh";
+#else
 		sh = "/bin/sh";
+#endif
 
 	*tp->args-- = tp->str;
 
