@@ -36,7 +36,18 @@ int vfat_identify(blkdev_t *dev)
 #if VFAT_DEBUG
     LOG_VOL("vfat_identify(%d:%d):", dev->major, dev->minor);
 #endif
-    return 0; // XXX: Implement
+    switch (dev->part_type) {
+    case 0x1:
+    case 0x4:
+    case 0x6:
+    case 0xb:
+    case 0xc:
+    case 0xe:
+    case 0xf:
+        return 0;
+    default:
+        return -ENODATA;
+    }
 }
 
 const char *vfat_parttype(blkdev_t *dev)
@@ -164,8 +175,8 @@ int vfat_mount(blkdev_t *dev, volume_t *vol, boolean safe_mode)
     }
 
 #if VFAT_DEBUG
-    LOG_VOL("vfat_mount(%s, %d:%d): mount rc = %d", dev->major,k dev->minor,
-            vol->mount_point, rc);
+    LOG_VOL("vfat_mount(%s, %d:%d): mount rc = %d", vol->mount_point,
+            dev->major, dev->minor, rc);
 #endif
     free (devpath);
     return rc;
