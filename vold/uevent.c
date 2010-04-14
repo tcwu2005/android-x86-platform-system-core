@@ -21,6 +21,7 @@
 
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <cutils/properties.h>
 
 #include "vold.h"
 #include "uevent.h"
@@ -216,10 +217,18 @@ static void free_uevent(struct uevent *event)
     }
     free(event);
 }
+/*
+ * This function can not find correct parameter for certain cases
+ * for example, if you have xxx_bla and xxx, you will have no way
+ * to know whether xxx_bla or xxx will be matched.
+ * So to solve this issue, try to match with "="
+ */
+
 
 static char *get_uevent_param(struct uevent *event, char *param_name)
 {
     int i;
+    char buf[MAX_UEVENT_NAME_LEN];
 
     for (i = 0; event->param[i] && i < UEVENT_PARAMS_MAX; ++i) {
         char *buf = strchr(event->param[i], '=');
@@ -244,11 +253,26 @@ static char *get_uevent_param(struct uevent *event, char *param_name)
 static int handle_powersupply_event(struct uevent *event)
 {
     char *ps_type = get_uevent_param(event, "POWER_SUPPLY_TYPE");
+    char name[PROPERTY_VALUE_MAX];
+    int nlen ;
+    double ps_cap;
+    double ps_cap_full = 0;
+    double cap;
+    int capacity;
 
     if (!strcasecmp(ps_type, "battery")) {
-        char *ps_cap = get_uevent_param(event, "POWER_SUPPLY_CAPACITY");
-        int capacity = atoi(ps_cap);
-  
+        property_get(POWER_UEVENT_NAME_CHARGE_NOW,name, "POWER_SUPPLY_CAPACITY");
+        ps_cap = atof(get_uevent_param(event, name));
+        nlen = property_get(POWER_UEVENT_NAME_CHARGE_FULL, name, NULL);
+        if (nlen > 0)
+            ps_cap_full = atof(get_uevent_param(event, name));
+        if (ps_cap_full) {
+            cap = (ps_cap/ps_cap_full)*100;
+            capacity = (int)cap;
+        } else
+            capacity = (int)ps_cap; /* G1 battery */
+
+        LOGE("%s: current cap:%d\n", __FUNCTION__, capacity);
         if (capacity < 5)
             low_batt = true;
         else
