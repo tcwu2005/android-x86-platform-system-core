@@ -37,7 +37,9 @@
 
 #define CMDLINE_PREFIX  "/dev"
 #define SYSFS_PREFIX    "/sys"
+#ifndef FIRMWARE_DIR
 #define FIRMWARE_DIR    "/etc/firmware"
+#endif
 #define MAX_QEMU_PERM 6
 
 struct uevent {

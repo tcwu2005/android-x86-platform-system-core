@@ -17,6 +17,10 @@ LOCAL_SRC_FILES += bootchart.c
 LOCAL_CFLAGS    += -DBOOTCHART=1
 endif
 
+ifeq ($(TARGET_ARCH),x86)
+LOCAL_CFLAGS    += -DFIRMWARE_DIR=\"/system/lib/firmware\"
+endif
+
 LOCAL_MODULE:= init
 
 LOCAL_FORCE_STATIC_EXECUTABLE := true
