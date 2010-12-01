@@ -931,6 +931,9 @@ int main(int argc, char **argv)
     snprintf(tmp, PROP_VALUE_MAX, "%d", revision);
     property_set("ro.revision", tmp);
 
+    if ((tmpdev = getenv("HWACCEL")))
+        property_set("debug.egl.hw", tmpdev);
+
         /* execute all the boot actions to get us started */
     action_for_each_trigger("init", action_add_queue_tail);
     drain_action_queue();
