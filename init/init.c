@@ -927,6 +927,8 @@ int main(int argc, char **argv)
     property_set("ro.carrier", carrier[0] ? carrier : "unknown");
     property_set("ro.bootloader", bootloader[0] ? bootloader : "unknown");
 
+    if ((tmpdev = getenv("DEBUG")))
+        property_set("debug.logcat", tmpdev);
     if ((tmpdev = getenv("HWACCEL")) && !atoi(tmpdev)) {
         property_set("debug.egl.hw", tmpdev);
         // a temporary workaround to disable hardware specific gralloc
