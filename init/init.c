@@ -464,6 +464,8 @@ static void import_kernel_nv(char *name, int in_qemu)
 static struct command *get_first_command(struct action *act)
 {
     struct listnode *node;
+    if (list_empty(&act->commands))
+        return NULL;
     node = list_head(&act->commands);
     if (!node || list_empty(&act->commands))
         return NULL;
