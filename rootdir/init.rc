@@ -29,11 +29,11 @@ on init
     sysclktz 0
 
     # Backward compatibility.
-    symlink /system/etc /etc
-    symlink /sys/kernel/debug /d
+    symlink system/etc /etc
+    symlink sys/kernel/debug /d
 
     # Link /vendor to /system/vendor for devices without a vendor partition.
-    symlink /system/vendor /vendor
+    symlink system/vendor /vendor
 
     # Create cgroup mount point for cpu accounting
     mkdir /acct
@@ -85,8 +85,8 @@ on init
     mkdir /mnt/runtime/write/self 0755 root root
 
     # Symlink to keep legacy apps working in multi-user world
-    symlink /storage/self/primary /sdcard
-    symlink /mnt/user/0/primary /mnt/runtime/default/self/primary
+    symlink storage/self/primary /sdcard
+    symlink ../../../mnt/user/0/primary /mnt/runtime/default/self/primary
 
     # memory control cgroup
     mkdir /dev/memcg 0700 root system
@@ -381,7 +381,7 @@ on post-fs-data
     mkdir /data/adb 0700 root root
 
     # symlink to bugreport storage location
-    symlink /data/data/com.android.shell/files/bugreports /data/bugreports
+    symlink data/com.android.shell/files/bugreports /data/bugreports
 
     # Separate location for storing security policy files on data
     mkdir /data/security 0711 system system
