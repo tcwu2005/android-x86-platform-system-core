@@ -627,6 +627,11 @@ static int set_init_properties_action(int nargs, char **args)
     property_set("ro.carrier", carrier[0] ? carrier : "unknown");
     property_set("ro.bootloader", bootloader[0] ? bootloader : "unknown");
 
+    if ((tmpdev = getenv("HWACCEL")) && tmpdev[0] == '0') {
+        property_set("debug.egl.hw", tmpdev);
+        // a temporary workaround to disable hardware specific gralloc
+        hardware[0] = '\0';
+    }
     property_set("ro.hardware", hardware);
     snprintf(tmp, PROP_VALUE_MAX, "%d", revision);
     property_set("ro.revision", tmp);
