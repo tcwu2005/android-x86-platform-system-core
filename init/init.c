@@ -583,6 +583,7 @@ static int console_init_action(int nargs, char **args)
 static int set_init_properties_action(int nargs, char **args)
 {
     char tmp[PROP_VALUE_MAX];
+    char *tmpdev;
 
     if (qemu[0])
         import_kernel_cmdline(1, import_kernel_nv);
@@ -603,6 +604,9 @@ static int set_init_properties_action(int nargs, char **args)
     property_set("ro.hardware", hardware);
     snprintf(tmp, PROP_VALUE_MAX, "%d", revision);
     property_set("ro.revision", tmp);
+    if ((tmpdev = getenv("DEBUG")) && *tmpdev)
+        property_set("debug.logcat", tmpdev);
+
     return 0;
 }
 
