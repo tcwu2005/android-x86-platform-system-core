@@ -17,6 +17,9 @@
 # gpu driver for adreno200 is globally accessible
 /dev/kgsl                 0666   root       root
 
+# kms driver for android-x86
+/dev/dri/*                0666   root       graphics
+
 # these should not be world writable
 /dev/diag                 0660   radio      radio
 /dev/diag_arm9            0660   radio      radio
@@ -32,6 +35,7 @@
 /dev/input/*              0660   root       input
 /dev/eac                  0660   root       audio
 /dev/cam                  0660   root       camera
+/dev/video*               0660   root       camera
 /dev/pmem                 0660   system     graphics
 /dev/pmem_adsp*           0660   system     audio
 /dev/pmem_camera*         0660   system     camera
@@ -66,6 +70,7 @@
 /dev/qmi0                 0640   radio      radio
 /dev/qmi1                 0640   radio      radio
 /dev/qmi2                 0640   radio      radio
+/dev/ttyUSB*              0660   radio      radio
 /dev/bus/usb/*            0660   root       usb
 /dev/usb_accessory        0660   root       usb
 
