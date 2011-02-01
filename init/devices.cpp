@@ -49,9 +49,13 @@
 #include "log.h"
 
 #define SYSFS_PREFIX    "/sys"
+#if defined(__i386__) || defined(__x86_64__)
+static const char *firmware_dirs[] = { "/system/lib/firmware" };
+#else
 static const char *firmware_dirs[] = { "/etc/firmware",
                                        "/vendor/firmware",
                                        "/firmware/image" };
+#endif
 
 extern struct selabel_handle *sehandle;
 
