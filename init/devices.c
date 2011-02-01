@@ -40,7 +40,11 @@
 #include "list.h"
 
 #define SYSFS_PREFIX    "/sys"
+#ifdef __i386__
+#define FIRMWARE_DIR1   "/system/lib/firmware"
+#else
 #define FIRMWARE_DIR1   "/etc/firmware"
+#endif
 #define FIRMWARE_DIR2   "/vendor/firmware"
 
 static int device_fd = -1;
