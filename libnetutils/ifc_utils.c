@@ -195,6 +195,16 @@ int ifc_set_addr(const char *name, in_addr_t addr)
     return ioctl(ifc_ctl_sock, SIOCSIFADDR, &ifr);
 }
 
+int ifc_set_mask(const char *name, in_addr_t mask)
+{
+    struct ifreq ifr;
+
+    ifc_init_ifr(name, &ifr);
+    init_sockaddr_in(&ifr.ifr_addr, mask);
+
+    return ioctl(ifc_ctl_sock, SIOCSIFNETMASK, &ifr);
+}
+
 int ifc_set_hwaddr(const char *name, const void *ptr)
 {
     int r;
