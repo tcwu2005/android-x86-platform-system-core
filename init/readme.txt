@@ -207,6 +207,9 @@ setenforce 0|1
 setkey
    TBD
 
+setkeycode <scancode> <keycode>
+   Set an entry into the kernel's scancode-to-keycode map.
+
 setprop <name> <value>
    Set system property <name> to <value>.
 
