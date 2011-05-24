@@ -164,7 +164,7 @@
 #define ARM3_CP15_CONTROL	2
 #define ARM3_CP15_CACHEABLE	3
 #define ARM3_CP15_UPDATEABLE	4
-#define ARM3_CP15_DISRUPTIVE	5	
+#define ARM3_CP15_DISRUPTIVE	5
 
 /* ARM3 Control register bits */
 #define ARM3_CTL_CACHE_ON	0x00000001
@@ -285,7 +285,7 @@
 /*
  * ARM Instructions
  *
- *       3 3 2 2 2                              
+ *       3 3 2 2 2
  *       1 0 9 8 7                                                     0
  *      +-------+-------------------------------------------------------+
  *      | cond  |              instruction dependant                    |

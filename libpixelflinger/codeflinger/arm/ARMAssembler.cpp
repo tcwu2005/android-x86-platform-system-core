@@ -1,17 +1,17 @@
-/* libs/pixelflinger/codeflinger/ARMAssembler.cpp
+/* libs/pixelflinger/codeflinger/arm/ARMAssembler.cpp
 **
 ** Copyright 2006, The Android Open Source Project
 **
-** Licensed under the Apache License, Version 2.0 (the "License"); 
-** you may not use this file except in compliance with the License. 
-** You may obtain a copy of the License at 
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
 **
-**     http://www.apache.org/licenses/LICENSE-2.0 
+**     http://www.apache.org/licenses/LICENSE-2.0
 **
-** Unless required by applicable law or agreed to in writing, software 
-** distributed under the License is distributed on an "AS IS" BASIS, 
-** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. 
-** See the License for the specific language governing permissions and 
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
 ** limitations under the License.
 */
 
@@ -28,9 +28,9 @@
 
 #include <private/pixelflinger/ggl_context.h>
 
-#include "ARMAssembler.h"
-#include "CodeCache.h"
-#include "disassem.h"
+#include "codeflinger/arm/ARMAssembler.h"
+#include "codeflinger/CodeCache.h"
+#include "codeflinger/arm/disassem.h"
 
 // ----------------------------------------------------------------------------
 
@@ -178,7 +178,7 @@ int ARMAssembler::generate(const char* name)
     }
 
     mAssembly->resize( int(pc()-base())*4 );
-    
+
     // the instruction cache is flushed by CodeCache
     const int64_t duration = ggl_system_time() - mDuration;
     const char * const format = "generated %s (%d ins) at [%p:%p] in %lld ns\n";
@@ -197,7 +197,7 @@ int ARMAssembler::generate(const char* name)
         printf(format, name, int(pc()-base()), base(), pc(), duration);
         disassemble(name);
     }
-    
+
     return NO_ERROR;
 }
 
@@ -227,14 +227,14 @@ void ARMAssembler::dataProcessing(int opcode, int cc,
 // multiply...
 void ARMAssembler::MLA(int cc, int s,
         int Rd, int Rm, int Rs, int Rn) {
-    if (Rd == Rm) { int t = Rm; Rm=Rs; Rs=t; } 
+    if (Rd == Rm) { int t = Rm; Rm=Rs; Rs=t; }
     LOG_FATAL_IF(Rd==Rm, "MLA(r%u,r%u,r%u,r%u)", Rd,Rm,Rs,Rn);
     *mPC++ =    (cc<<28) | (1<<21) | (s<<20) |
                 (Rd<<16) | (Rn<<12) | (Rs<<8) | 0x90 | Rm;
 }
 void ARMAssembler::MUL(int cc, int s,
         int Rd, int Rm, int Rs) {
-    if (Rd == Rm) { int t = Rm; Rm=Rs; Rs=t; } 
+    if (Rd == Rm) { int t = Rm; Rm=Rs; Rs=t; }
     LOG_FATAL_IF(Rd==Rm, "MUL(r%u,r%u,r%u)", Rd,Rm,Rs);
     *mPC++ = (cc<<28) | (s<<20) | (Rd<<16) | (Rs<<8) | 0x90 | Rm;
 }
@@ -591,4 +591,3 @@ uint32_t ARMAssembler::reg_post(int Rm)
 }
 
 }; // namespace android
-

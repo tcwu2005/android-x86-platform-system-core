@@ -1,17 +1,17 @@
-/* libs/pixelflinger/codeflinger/GGLAssembler.cpp
+/* libs/pixelflinger/codeflinger/arm/GGLAssembler.cpp
 **
 ** Copyright 2006, The Android Open Source Project
 **
-** Licensed under the Apache License, Version 2.0 (the "License"); 
-** you may not use this file except in compliance with the License. 
-** You may obtain a copy of the License at 
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
 **
-**     http://www.apache.org/licenses/LICENSE-2.0 
+**     http://www.apache.org/licenses/LICENSE-2.0
 **
-** Unless required by applicable law or agreed to in writing, software 
-** distributed under the License is distributed on an "AS IS" BASIS, 
-** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. 
-** See the License for the specific language governing permissions and 
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
 ** limitations under the License.
 */
 
@@ -24,7 +24,7 @@
 #include <sys/types.h>
 #include <cutils/log.h>
 
-#include "GGLAssembler.h"
+#include "codeflinger/arm/GGLAssembler.h"
 
 namespace android {
 
@@ -70,14 +70,14 @@ int GGLAssembler::scanline(const needs_t& needs, context_t const* c)
             break;
         opt_level--;
     }
-    
+
     // XXX: in theory, pcForLabel is not valid before generate()
     uint32_t* fragment_start_pc = pcForLabel("fragment_loop");
     uint32_t* fragment_end_pc = pcForLabel("epilog");
     const int per_fragment_ops = int(fragment_end_pc - fragment_start_pc);
-    
+
     // build a name for our pipeline
-    char name[64];    
+    char name[64];
     sprintf(name,
             "scanline__%08X:%08X_%08X_%08X [%3d ipp]",
             needs.p, needs.n, needs.t[0], needs.t[1], per_fragment_ops);
@@ -151,7 +151,7 @@ int GGLAssembler::scanline_core(const needs_t& needs, context_t const* c)
         (mBlendDst==GGL_ZERO) && (mBlendDstA==GGL_ZERO)) {
         // Destination is zero (beware of logic ops)
     }
-    
+
     int fbComponents = 0;
     const int masking = GGL_READ_NEEDS(MASK_ARGB, needs.n);
     for (int i=0 ; i<4 ; i++) {
@@ -162,16 +162,16 @@ int GGLAssembler::scanline_core(const needs_t& needs, context_t const* c)
         if (fs==GGL_SRC_ALPHA_SATURATE && i==GGLFormat::ALPHA)
             fs = GGL_ONE;
         info.masked =   !!(masking & mask);
-        info.inDest =   !info.masked && mCbFormat.c[i].h && 
+        info.inDest =   !info.masked && mCbFormat.c[i].h &&
                         ((mLogicOp & LOGIC_OP_SRC) || (!mLogicOp));
         if (mCbFormat.components >= GGL_LUMINANCE &&
                 (i==GGLFormat::GREEN || i==GGLFormat::BLUE)) {
             info.inDest = false;
         }
-        info.needed =   (i==GGLFormat::ALPHA) && 
+        info.needed =   (i==GGLFormat::ALPHA) &&
                         (isAlphaSourceNeeded() || mAlphaTest != GGL_ALWAYS);
         info.replaced = !!(mTextureMachine.replaced & mask);
-        info.iterated = (!info.replaced && (info.inDest || info.needed)); 
+        info.iterated = (!info.replaced && (info.inDest || info.needed));
         info.smooth =   mSmooth && info.iterated;
         info.fog =      mFog && info.inDest && (i != GGLFormat::ALPHA);
         info.blend =    (fs != int(GGL_ONE)) || (fd > int(GGL_ZERO));
@@ -185,7 +185,7 @@ int GGLAssembler::scanline_core(const needs_t& needs, context_t const* c)
     if (mAllMasked) {
         mDithering = 0;
     }
-    
+
     fragment_parts_t parts;
 
     // ------------------------------------------------------------------------
@@ -235,9 +235,9 @@ int GGLAssembler::scanline_core(const needs_t& needs, context_t const* c)
                 return registerFile().status();
         }
 
-        if ((blending & (FACTOR_DST|BLEND_DST)) || 
+        if ((blending & (FACTOR_DST|BLEND_DST)) ||
                 (mMasking && !mAllMasked) ||
-                (mLogicOp & LOGIC_OP_DST)) 
+                (mLogicOp & LOGIC_OP_DST))
         {
             // blending / logic_op / masking need the framebuffer
             mDstPixel.setTo(regs.obtain(), &mCbFormat);
@@ -267,7 +267,7 @@ int GGLAssembler::scanline_core(const needs_t& needs, context_t const* c)
                 LDRB(AL, parts.dither.reg, parts.dither.reg,
                         immed12_pre(GGL_OFFSETOF(ditherMatrix)));
             }
-        
+
             // allocate a register for the resulting pixel
             pixel.setTo(regs.obtain(), &mCbFormat, FIRST);
 
@@ -288,20 +288,20 @@ int GGLAssembler::scanline_core(const needs_t& needs, context_t const* c)
 
         if (registerFile().status())
             return registerFile().status();
-        
+
         if (pixel.reg == -1) {
             // be defensive here. if we're here it's probably
             // that this whole fragment is a no-op.
             pixel = mDstPixel;
         }
-        
+
         if (!mAllMasked) {
             // logic operation
             build_logic_op(pixel, regs);
-    
+
             // masking
-            build_masking(pixel, regs); 
-    
+            build_masking(pixel, regs);
+
             comment("store");
             store(parts.cbPtr, pixel, WRITE_BACK);
         }
@@ -357,7 +357,7 @@ void GGLAssembler::build_scanline_prolog(
     // compute count
     comment("compute ct (# of pixels to process)");
     parts.count.setTo(obtainReg());
-    int Rx = scratches.obtain();    
+    int Rx = scratches.obtain();
     int Ry = scratches.obtain();
     CONTEXT_LOAD(Rx, iterators.xl);
     CONTEXT_LOAD(parts.count.reg, iterators.xr);
@@ -397,7 +397,7 @@ void GGLAssembler::build_scanline_prolog(
         base_offset(parts.cbPtr, parts.cbPtr, Rs);
         scratches.recycle(Rs);
     }
-    
+
     // init fog
     const int need_fog = GGL_READ_NEEDS(P_FOG, needs.p);
     if (need_fog) {
@@ -500,7 +500,7 @@ void GGLAssembler::build_incoming_component(
 
     // Are we actually going to blend?
     const int need_blending = (fs != int(GGL_ONE)) || (fd > int(GGL_ZERO));
-    
+
     // expand the source if the destination has more bits
     int need_expander = false;
     for (int i=0 ; i<GGL_TEXTURE_UNIT_COUNT-1 ; i++) {
@@ -621,7 +621,7 @@ bool GGLAssembler::isAlphaSourceNeeded() const
     const int bd = mBlendDst;
     return  bs==GGL_SRC_ALPHA_SATURATE ||
             bs==GGL_SRC_ALPHA || bs==GGL_ONE_MINUS_SRC_ALPHA ||
-            bd==GGL_SRC_ALPHA || bd==GGL_ONE_MINUS_SRC_ALPHA ; 
+            bd==GGL_SRC_ALPHA || bd==GGL_ONE_MINUS_SRC_ALPHA ;
 }
 
 // ---------------------------------------------------------------------------
@@ -635,12 +635,12 @@ void GGLAssembler::build_smooth_shade(const fragment_parts_t& parts)
 
         const int reload = parts.reload;
         for (int i=0 ; i<4 ; i++) {
-            if (!mInfo[i].iterated) 
+            if (!mInfo[i].iterated)
                 continue;
-                
+
             int c = parts.argb[i].reg;
             int dx = parts.argb_dx[i].reg;
-            
+
             if (reload & 1) {
                 c = scratches.obtain();
                 CONTEXT_LOAD(c, generated_vars.argb[i].c);
@@ -649,11 +649,11 @@ void GGLAssembler::build_smooth_shade(const fragment_parts_t& parts)
                 dx = scratches.obtain();
                 CONTEXT_LOAD(dx, generated_vars.argb[i].dx);
             }
-            
+
             if (mSmooth) {
                 ADD(AL, 0, c, c, dx);
             }
-            
+
             if (reload & 1) {
                 CONTEXT_STORE(c, generated_vars.argb[i].c);
                 scratches.recycle(c);
@@ -719,7 +719,7 @@ void GGLAssembler::build_alpha_test(component_t& fragment,
 }
 
 // ---------------------------------------------------------------------------
-            
+
 void GGLAssembler::build_depth_test(
         const fragment_parts_t& parts, uint32_t mask)
 {
@@ -738,7 +738,7 @@ void GGLAssembler::build_depth_test(
         case GGL_NOTEQUAL:  ic = NE;    break;
         case GGL_GEQUAL:    ic = LS;    break;
         case GGL_NEVER:
-            // this never happens, because it's taken care of when 
+            // this never happens, because it's taken care of when
             // computing the needs. but we keep it for completness.
             comment("Depth Test (NEVER)");
             B(AL, "discard_before_textures");
@@ -748,14 +748,14 @@ void GGLAssembler::build_depth_test(
             mask &= ~Z_TEST;    // test always passes.
             break;
         }
-        
+
         // inverse the condition
         cc = ic^1;
-        
+
         if ((mask & Z_WRITE) && !zmask) {
             mask &= ~Z_WRITE;
         }
-        
+
         if (!mask)
             return;
 
@@ -764,7 +764,7 @@ void GGLAssembler::build_depth_test(
         int zbase = scratches.obtain();
         int depth = scratches.obtain();
         int z = parts.z.reg;
-        
+
         CONTEXT_LOAD(zbase, generated_vars.zbase);  // stall
         SUB(AL, 0, zbase, zbase, reg_imm(parts.count.reg, LSR, 15));
             // above does zbase = zbase + ((count >> 16) << 1)
@@ -792,7 +792,7 @@ void GGLAssembler::build_iterate_z(const fragment_parts_t& parts)
         Scratch scratches(registerFile());
         int dzdx = scratches.obtain();
         CONTEXT_LOAD(dzdx, generated_vars.dzdx);    // stall
-        ADD(AL, 0, parts.z.reg, parts.z.reg, dzdx); 
+        ADD(AL, 0, parts.z.reg, parts.z.reg, dzdx);
     }
 }
 
@@ -818,7 +818,7 @@ void GGLAssembler::build_logic_op(pixel_t& pixel, Scratch& regs)
     const int opcode = GGL_READ_NEEDS(LOGIC_OP, needs.n) | GGL_CLEAR;
     if (opcode == GGL_COPY)
         return;
-    
+
     comment("logic operation");
 
     pixel_t s(pixel);
@@ -826,7 +826,7 @@ void GGLAssembler::build_logic_op(pixel_t& pixel, Scratch& regs)
         pixel.reg = regs.obtain();
         pixel.flags |= CORRUPTIBLE;
     }
-    
+
     pixel_t d(mDstPixel);
     switch(opcode) {
     case GGL_CLEAR:         MOV(AL, 0, pixel.reg, imm(0));          break;
@@ -852,7 +852,7 @@ void GGLAssembler::build_logic_op(pixel_t& pixel, Scratch& regs)
     case GGL_NAND:          AND(AL, 0, pixel.reg, s.reg, d.reg);
                             MVN(AL, 0, pixel.reg, pixel.reg);       break;
     case GGL_SET:           MVN(AL, 0, pixel.reg, imm(0));          break;
-    };        
+    };
 }
 
 // ---------------------------------------------------------------------------
@@ -892,7 +892,7 @@ void GGLAssembler::build_and_immediate(int d, int s, uint32_t mask, int bits)
             MOV( AL, 0, d, s);
         return;
     }
-    
+
     if (getCodegenArch() == CODEGEN_ARCH_MIPS) {
         // MIPS can do 16-bit imm in 1 instr, 32-bit in 3 instr
         // the below ' while (mask)' code is buggy on mips
@@ -926,7 +926,7 @@ void GGLAssembler::build_and_immediate(int d, int s, uint32_t mask, int bits)
     } else {
         MOV( AL, 0, d, imm(0));
     }
-}		
+}
 
 void GGLAssembler::build_masking(pixel_t& pixel, Scratch& regs)
 {
@@ -954,7 +954,7 @@ void GGLAssembler::build_masking(pixel_t& pixel, Scratch& regs)
     }
 
     // There is no need to clear the masked components of the source
-    // (unless we applied a logic op), because they're already zeroed 
+    // (unless we applied a logic op), because they're already zeroed
     // by construction (masked components are not computed)
 
     if (mLogicOp) {
@@ -968,7 +968,7 @@ void GGLAssembler::build_masking(pixel_t& pixel, Scratch& regs)
     }
 
     // clear non masked components of destination
-    build_and_immediate(fb.reg, fb.reg, ~mask, fb.size()); 
+    build_and_immediate(fb.reg, fb.reg, ~mask, fb.size());
 
     // or back the channels that were masked
     if (s.reg == fb.reg) {
@@ -1113,8 +1113,8 @@ int RegisterAllocator::RegisterFile::isUsed(int reg) const
 
 int RegisterAllocator::RegisterFile::obtain()
 {
-    const char priorityList[14] = {  0,  1, 2, 3, 
-                                    12, 14, 4, 5, 
+    const char priorityList[14] = {  0,  1, 2, 3,
+                                    12, 14, 4, 5,
                                      6,  7, 8, 9,
                                     10, 11 };
     const int nbreg = sizeof(priorityList);
@@ -1132,7 +1132,7 @@ int RegisterAllocator::RegisterFile::obtain()
         mStatus |= OUT_OF_REGISTERS;
         // we return SP so we can more easily debug things
         // the code will never be run anyway.
-        return ARMAssemblerInterface::SP; 
+        return ARMAssemblerInterface::SP;
     }
     reg = reserve(r);  // Param in Arm range 0-15, returns range 2-17 on Mips.
     return reg;
@@ -1187,4 +1187,3 @@ uint32_t RegisterAllocator::RegisterFile::touched() const
 // ----------------------------------------------------------------------------
 
 }; // namespace android
-

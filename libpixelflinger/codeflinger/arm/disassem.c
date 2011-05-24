@@ -136,9 +136,9 @@ static const struct arm32_insn arm32_i[] = {
     { 0x0c500000, 0x04400000, "strb",	"daW" },
     { 0x0c500000, 0x04500000, "ldrb",	"daW" },
     { 0x0e1f0000, 0x080d0000, "stm",	"YnWl" },/* separate out r13 base */
-    { 0x0e1f0000, 0x081d0000, "ldm",	"YnWl" },/* separate out r13 base */    
+    { 0x0e1f0000, 0x081d0000, "ldm",	"YnWl" },/* separate out r13 base */
     { 0x0e100000, 0x08000000, "stm",	"XnWl" },
-    { 0x0e100000, 0x08100000, "ldm",	"XnWl" },    
+    { 0x0e100000, 0x08100000, "ldm",	"XnWl" },
     { 0x0e1000f0, 0x00100090, "ldrb",	"deW" },
     { 0x0e1000f0, 0x00000090, "strb",	"deW" },
     { 0x0e1000f0, 0x001000d0, "ldrsb",	"deW" },
@@ -355,7 +355,7 @@ disasm(const disasm_interface_t *di, u_int loc, int altfmt)
 				di->di_printf("#0x%08x",
 					      (insn & 0xff) << (32 - rotate) |
 					      (insn & 0xff) >> rotate);
-			} else {  
+			} else {
 				disasm_register_shift(di, insn);
 			}
 			break;
@@ -594,16 +594,16 @@ disasm_print_reglist(const disasm_interface_t *di, u_int insn)
 					di->di_printf(", ");
 				else
 					comma = 1;
-        			if (start == loop - 1)
-        				di->di_printf("r%d", start);
-        			else
-        				di->di_printf("r%d-r%d", start, loop - 1);
-        			start = -1;
-        		}
-        	} else {
-        		if (insn & (1 << loop))
-        			start = loop;
-        	}
+				if (start == loop - 1)
+					di->di_printf("r%d", start);
+				else
+					di->di_printf("r%d-r%d", start, loop - 1);
+				start = -1;
+			}
+		} else {
+			if (insn & (1 << loop))
+				start = loop;
+		}
         }
 	di->di_printf("}");
 
@@ -624,7 +624,7 @@ disasm_insn_ldrstr(const disasm_interface_t *di, u_int insn, u_int loc)
 		else
 			loc -= offset;
 		di->di_printaddr(loc + 8);
- 	} else {
+	} else {
 		di->di_printf("[r%d", (insn >> 16) & 0x0f);
 		if ((insn & 0x03000fff) != 0x01000000) {
 			di->di_printf("%s, ", (insn & (1 << 24)) ? "" : "]");
@@ -653,7 +653,7 @@ disasm_insn_ldrhstrh(const disasm_interface_t *di, u_int insn, u_int loc)
 		else
 			loc -= offset;
 		di->di_printaddr(loc + 8);
- 	} else {
+	} else {
 		di->di_printf("[r%d", (insn >> 16) & 0x0f);
 		if ((insn & 0x01400f0f) != 0x01400000) {
 			di->di_printf("%s, ", (insn & (1 << 24)) ? "" : "]");

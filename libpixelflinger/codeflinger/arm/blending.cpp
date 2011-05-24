@@ -1,17 +1,17 @@
-/* libs/pixelflinger/codeflinger/blending.cpp
+/* libs/pixelflinger/codeflinger/arm/blending.cpp
 **
 ** Copyright 2006, The Android Open Source Project
 **
-** Licensed under the Apache License, Version 2.0 (the "License"); 
-** you may not use this file except in compliance with the License. 
-** You may obtain a copy of the License at 
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
 **
-**     http://www.apache.org/licenses/LICENSE-2.0 
+**     http://www.apache.org/licenses/LICENSE-2.0
 **
-** Unless required by applicable law or agreed to in writing, software 
-** distributed under the License is distributed on an "AS IS" BASIS, 
-** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. 
-** See the License for the specific language governing permissions and 
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
 ** limitations under the License.
 */
 
@@ -23,8 +23,7 @@
 
 #include <cutils/log.h>
 
-#include "GGLAssembler.h"
-
+#include "codeflinger/arm/GGLAssembler.h"
 
 namespace android {
 
@@ -43,7 +42,7 @@ void GGLAssembler::build_fog(
             temp.flags |= CORRUPTIBLE;
         }
 
-        integer_t fogColor(scratches.obtain(), 8, CORRUPTIBLE); 
+        integer_t fogColor(scratches.obtain(), 8, CORRUPTIBLE);
         LDRB(AL, fogColor.reg, mBuilderContext.Rctx,
                 immed12_pre(GGL_OFFSETOF(state.fog.color[component])));
 
@@ -68,7 +67,7 @@ void GGLAssembler::build_blending(
 {
    if (!mInfo[component].blend)
         return;
-        
+
     int fs = component==GGLFormat::ALPHA ? mBlendSrcA : mBlendSrc;
     int fd = component==GGLFormat::ALPHA ? mBlendDstA : mBlendDst;
     if (fs==GGL_SRC_ALPHA_SATURATE && component==GGLFormat::ALPHA)
@@ -105,7 +104,7 @@ void GGLAssembler::build_blending(
 
     const bool same_factor_opt2 =
         (fs==GGL_ONE_MINUS_DST_COLOR && fd==GGL_DST_COLOR) ||
-        (fs==GGL_ONE_MINUS_SRC_COLOR && fd==GGL_SRC_COLOR) || 
+        (fs==GGL_ONE_MINUS_SRC_COLOR && fd==GGL_SRC_COLOR) ||
         (fs==GGL_ONE_MINUS_DST_ALPHA && fd==GGL_DST_ALPHA) ||
         (fs==GGL_ONE_MINUS_SRC_ALPHA && fd==GGL_SRC_ALPHA);
 
@@ -118,8 +117,8 @@ void GGLAssembler::build_blending(
 
     // see if we need to extract 'component' from the destination (fb)
     integer_t fb;
-    if (blending & (BLEND_DST|FACTOR_DST)) { 
-        fb.setTo(scratches.obtain(), 32); 
+    if (blending & (BLEND_DST|FACTOR_DST)) {
+        fb.setTo(scratches.obtain(), 32);
         extract(fb, pixel, component);
         if (mDithering) {
             // XXX: maybe what we should do instead, is simply
@@ -167,7 +166,7 @@ void GGLAssembler::build_blending(
     if (same_factor_opt1) {
         //  R = S*f + D*(1-f) = (S-D)*f + D
         integer_t factor;
-        build_blend_factor(factor, fs, 
+        build_blend_factor(factor, fs,
                 component, pixel, fragment, fb, scratches);
         // fb is always corruptible from this point
         fb.flags |= CORRUPTIBLE;
@@ -184,7 +183,7 @@ void GGLAssembler::build_blending(
         integer_t src_factor;
         integer_t dst_factor;
 
-        // if destination (fb) is not needed for the blending stage, 
+        // if destination (fb) is not needed for the blending stage,
         // then it can be marked as CORRUPTIBLE
         if (!(blending & BLEND_DST)) {
             fb.flags |= CORRUPTIBLE;
@@ -225,7 +224,7 @@ void GGLAssembler::build_blending(
             }
         } else {
             // compute fs
-            build_blend_factor(src_factor, fs, 
+            build_blend_factor(src_factor, fs,
                     component, pixel, fragment, fb, scratches);
             if (fd==GGL_ZERO) {         // R = S*fs
                 mul_factor(temp, fragment, src_factor);
@@ -275,7 +274,7 @@ void GGLAssembler::build_blend_factor(
             if (!mBlendFactorCached || mBlendFactorCached==f) {
                 src_alpha = mAlphaSource;
                 factor = mAlphaSource;
-                factor.flags &= ~CORRUPTIBLE;           
+                factor.flags &= ~CORRUPTIBLE;
                 // we already computed the blend factor before, nothing to do.
                 if (mBlendFactorCached)
                     return;
@@ -289,16 +288,16 @@ void GGLAssembler::build_blend_factor(
                 // we cannot have BOTH source and destination
                 // blend factors use ALPHA *and* ONE_MINUS_ALPHA (because
                 // the blending stage uses the f/(1-f) optimization
-                
+
                 // for completeness, we handle this case though. Since there
                 // are only 2 choices, this meens we want "the other one"
                 // (1-factor)
                 factor = mAlphaSource;
-                factor.flags &= ~CORRUPTIBLE;           
+                factor.flags &= ~CORRUPTIBLE;
                 RSB(AL, 0, factor.reg, factor.reg, imm((1<<factor.s)));
                 mBlendFactorCached = f;
                 return;
-            }                
+            }
         }
         // fall-through...
     case GGL_ONE_MINUS_DST_COLOR:
@@ -318,7 +317,7 @@ void GGLAssembler::build_blend_factor(
             fb.flags &= ~CORRUPTIBLE;
         } else {
             factor.setTo(scratches.obtain(), 32, CORRUPTIBLE);
-        } 
+        }
         break;
     }
 
@@ -364,7 +363,7 @@ void GGLAssembler::build_blend_factor(
     case GGL_ONE_MINUS_SRC_ALPHA:
         RSB(AL, 0, factor.reg, factor.reg, imm((1<<factor.s)));
     }
-    
+
     // don't need more than 8-bits for the blend factor
     // and this will prevent overflows in the multiplies later
     if (factor.s > 8) {
@@ -393,7 +392,7 @@ int GGLAssembler::blending_codes(int fs, int fd)
         break;
 
     case GGL_ONE_MINUS_SRC_COLOR:
-    case GGL_SRC_COLOR:    
+    case GGL_SRC_COLOR:
         blending |= FACTOR_SRC|BLEND_SRC;
         break;
     case GGL_ONE_MINUS_SRC_ALPHA:
@@ -417,7 +416,7 @@ int GGLAssembler::blending_codes(int fs, int fd)
         break;
 
     case GGL_ONE_MINUS_SRC_COLOR:
-    case GGL_SRC_COLOR:    
+    case GGL_SRC_COLOR:
         blending |= FACTOR_SRC|BLEND_DST;
         break;
     case GGL_ONE_MINUS_SRC_ALPHA:
@@ -434,7 +433,7 @@ int GGLAssembler::blending_codes(int fs, int fd)
 
 void GGLAssembler::build_blendFOneMinusF(
         component_t& temp,
-        const integer_t& factor, 
+        const integer_t& factor,
         const integer_t& fragment,
         const integer_t& fb)
 {
@@ -452,7 +451,7 @@ void GGLAssembler::build_blendFOneMinusF(
 
 void GGLAssembler::build_blendOneMinusFF(
         component_t& temp,
-        const integer_t& factor, 
+        const integer_t& factor,
         const integer_t& fragment,
         const integer_t& fb)
 {
@@ -554,9 +553,9 @@ void GGLAssembler::mul_factor(  component_t& d,
 
     d.h = ms;
     if (mDithering) {
-        d.l = 0; 
+        d.l = 0;
     } else {
-        d.l = fs; 
+        d.l = fs;
         d.flags |= CLEAR_LO;
     }
 }
@@ -625,7 +624,7 @@ void GGLAssembler::mul_factor_add(  component_t& d,
 
     d.h = ms;
     if (mDithering) {
-        d.l = a.l; 
+        d.l = a.l;
     } else {
         d.l = fs>a.l ? fs : a.l;
         d.flags |= CLEAR_LO;
@@ -669,4 +668,3 @@ void GGLAssembler::component_sat(const component_t& v)
 // ----------------------------------------------------------------------------
 
 }; // namespace android
-
