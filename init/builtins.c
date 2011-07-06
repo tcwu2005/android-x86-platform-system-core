@@ -96,16 +96,6 @@ static int kbioctl(int cmd, void *data)
     return ret;
 }
 
-static int setkey(struct kbentry *kbe)
-{
-    return kbioctl(KDSKBENT, kbe);
-}
-
-static int setkeycode(struct kbkeycode *kbk)
-{
-    return kbioctl(KDSETKEYCODE, kbk);
-}
-
 static int __ifupdown(const char *interface, int up)
 {
     struct ifreq ifr;
@@ -370,7 +360,7 @@ int do_setkey(int nargs, char **args)
     kbe.kb_table = strtoul(args[1], 0, 0);
     kbe.kb_index = strtoul(args[2], 0, 0);
     kbe.kb_value = strtoul(args[3], 0, 0);
-    return setkey(&kbe);
+    return kbioctl(KDSKBENT, &kbe);
 }
 
 int do_setkeycode(int nargs, char **args)
@@ -378,18 +368,15 @@ int do_setkeycode(int nargs, char **args)
     struct kbkeycode kbk;
     unsigned int sc, kc;
     sc = strtoul(args[1], 0, 0);
-    if (sc > 127) {
+    if (sc >= 0xe000) {
         sc -= 0xe000;
         sc += 128;
     }
     kc = strtoul(args[2], 0, 0);
-    if (sc > 255 || kc > 127) {
-        ERROR("SCANCODE or KEYCODE out of range");
-        return -1;
-    }
     kbk.scancode = sc;
     kbk.keycode = kc;
-    return setkeycode(&kbk);
+    /* sc, kc may be out of range, but we leave the testing to the kernel */
+    return kbioctl(KDSETKEYCODE, &kbk);
 }
 
 int do_setprop(int nargs, char **args)
