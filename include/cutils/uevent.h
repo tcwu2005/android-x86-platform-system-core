@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009 The Android Open Source Project
+ * Copyright (C) 2011 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,12 +14,19 @@
  * limitations under the License.
  */
 
-#ifndef __USB_VENDORS_H
-#define __USB_VENDORS_H
+#ifndef __CUTILS_UEVENT_H
+#define __CUTILS_UEVENT_H
 
-extern int vendorIds[];
-extern unsigned  vendorIdCount;
+#include <sys/socket.h>
 
-void usb_vendors_init(void);
-
+#ifdef __cplusplus
+extern "C" {
 #endif
+
+ssize_t uevent_checked_recv(int socket, void *buffer, size_t length);
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif /* __CUTILS_UEVENT_H */

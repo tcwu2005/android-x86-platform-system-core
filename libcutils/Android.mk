@@ -46,7 +46,8 @@ commonSources := \
 	properties.c \
 	threads.c \
 	sched_policy.c \
-	iosched_policy.c
+	iosched_policy.c \
+	str_parms.c
 
 commonHostSources := \
         ashmem-host.c
@@ -109,7 +110,7 @@ else #!sim
 # ========================================================
 include $(CLEAR_VARS)
 LOCAL_MODULE := libcutils
-LOCAL_SRC_FILES := $(commonSources) ashmem-dev.c mq.c android_reboot.c
+LOCAL_SRC_FILES := $(commonSources) ashmem-dev.c mq.c android_reboot.c uevent.c
 
 ifeq ($(TARGET_ARCH),arm)
 LOCAL_SRC_FILES += arch-arm/memset32.S

@@ -55,7 +55,7 @@ SocketListener::~SocketListener() {
     }
     SocketClientCollection::iterator it;
     for (it = mClients->begin(); it != mClients->end();) {
-        delete (*it);
+        (*it)->decRef();
         it = mClients->erase(it);
     }
     delete mClients;
@@ -213,8 +213,9 @@ void SocketListener::runListener() {
             it = pendingList->begin();
             SocketClient* c = *it;
             pendingList->erase(it);
-            /* Process it, if false is returned, remove and destroy it */
-            if (!onDataAvailable(c)) {
+            /* Process it, if false is returned and our sockets are
+             * connection-based, remove and destroy it */
+            if (!onDataAvailable(c) && mListen) {
                 /* Remove the client from our array */
                 pthread_mutex_lock(&mClientsLock);
                 for (it = mClients->begin(); it != mClients->end(); ++it) {
@@ -225,8 +226,11 @@ void SocketListener::runListener() {
                 }
                 pthread_mutex_unlock(&mClientsLock);
                 /* Destroy the client */
-                close(c->getSocket());
-                delete c;
+                int socket = c->getSocket();
+                if (c->decRef()) {
+                    // Note: 'c' is deleted memory at this point.
+                    close(socket);
+                }
             }
         }
     }

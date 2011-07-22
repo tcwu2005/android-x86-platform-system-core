@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009 The Android Open Source Project
+ * Copyright (C) 2011 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,12 +14,28 @@
  * limitations under the License.
  */
 
-#ifndef __USB_VENDORS_H
-#define __USB_VENDORS_H
+#ifndef __CUTILS_BITOPS_H
+#define __CUTILS_BITOPS_H
 
-extern int vendorIds[];
-extern unsigned  vendorIdCount;
+#include <sys/cdefs.h>
 
-void usb_vendors_init(void);
+__BEGIN_DECLS
 
-#endif
+static inline int popcount(unsigned int x)
+{
+    return __builtin_popcount(x);
+}
+
+static inline int popcountl(unsigned long x)
+{
+    return __builtin_popcountl(x);
+}
+
+static inline int popcountll(unsigned long long x)
+{
+    return __builtin_popcountll(x);
+}
+
+__END_DECLS
+
+#endif /* __CUTILS_BITOPS_H */
