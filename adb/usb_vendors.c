@@ -69,6 +69,8 @@
 #define VENDOR_ID_PANTECH       0x10A9
 // Qualcomm's USB Vendor ID
 #define VENDOR_ID_QUALCOMM      0x05c6
+// On-The-Go-Video's USB Vendor ID
+#define VENDOR_ID_OTGV          0x2257
 // NEC's USB Vendor ID
 #define VENDOR_ID_NEC           0x0409
 // Panasonic Mobile Communication's USB Vendor ID
@@ -83,6 +85,8 @@
 #define VENDOR_ID_ASUS          0x0b05
 // Philips's USB Vendor ID
 #define VENDOR_ID_PHILIPS       0x0471
+// Texas Instruments's USB Vendor ID
+#define VENDOR_ID_TI            0x0451
 
 
 /** built-in vendor list */
@@ -104,6 +108,7 @@ int builtInVendorIds[] = {
     VENDOR_ID_KYOCERA,
     VENDOR_ID_PANTECH,
     VENDOR_ID_QUALCOMM,
+    VENDOR_ID_OTGV,
     VENDOR_ID_NEC,
     VENDOR_ID_PMC,
     VENDOR_ID_TOSHIBA,
@@ -111,6 +116,7 @@ int builtInVendorIds[] = {
     VENDOR_ID_KT_TECH,
     VENDOR_ID_ASUS,
     VENDOR_ID_PHILIPS,
+    VENDOR_ID_TI,
 };
 
 #define BUILT_IN_VENDOR_COUNT    (sizeof(builtInVendorIds)/sizeof(builtInVendorIds[0]))
@@ -172,7 +178,7 @@ void usb_vendors_init(void)
 /* builds the path to the adb vendor id file. returns 0 if success */
 int build_path(char* buff, size_t len, const char* format, const char* home)
 {
-    if (snprintf(buff, len, format, home, ANDROID_PATH, ANDROID_ADB_INI) >= len) {
+    if (snprintf(buff, len, format, home, ANDROID_PATH, ANDROID_ADB_INI) >= (signed)len) {
         return 1;
     }
 

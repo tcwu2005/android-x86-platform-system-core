@@ -13,7 +13,11 @@ copy_from := \
 	etc/ppp/ip-up \
 	etc/ppp/peers/gprs
 
-ifeq ($(TARGET_PRODUCT),generic)
+ifeq ($(TARGET_PRODUCT),full)
+copy_from += etc/vold.fstab
+endif
+
+ifeq ($(TARGET_PRODUCT),full_x86)
 copy_from += etc/vold.fstab
 endif
 
