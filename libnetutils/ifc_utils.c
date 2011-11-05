@@ -279,7 +279,7 @@ int ifc_get_info(const char *name, in_addr_t *addr, int *prefixLength, unsigned 
     return 0;
 }
 
-int ifc_add_ipv4_route(const char *ifname, struct in_addr dst, int prefix_length,
+int ifc_act_on_ipv4_route(int action, const char *ifname, struct in_addr dst, int prefix_length,
       struct in_addr gw)
 {
     struct rtentry rt;
@@ -311,7 +311,7 @@ int ifc_add_ipv4_route(const char *ifname, struct in_addr dst, int prefix_length
         return -errno;
     }
 
-    result = ioctl(ifc_ctl_sock, SIOCADDRT, &rt);
+    result = ioctl(ifc_ctl_sock, action, &rt);
     if (result < 0) {
         if (errno == EEXIST) {
             result = 0;
@@ -330,17 +330,7 @@ int ifc_create_default_route(const char *name, in_addr_t gw)
     in_dst.s_addr = 0;
     in_gw.s_addr = gw;
 
-    return ifc_add_ipv4_route(name, in_dst, 0, in_gw);
-}
-
-int ifc_add_host_route(const char *name, in_addr_t dst)
-{
-    struct in_addr in_dst, in_gw;
-
-    in_dst.s_addr = dst;
-    in_gw.s_addr = 0;
-
-    return ifc_add_ipv4_route(name, in_dst, 32, in_gw);
+    return ifc_act_on_route(SIOCADDRT, name, in_dst, 0, in_gw);
 }
 
 int ifc_enable(const char *ifname)
@@ -373,19 +363,46 @@ int ifc_disable(const char *ifname)
     return result;
 }
 
-int ifc_reset_connections(const char *ifname)
+#define RESET_IPV4_ADDRESSES 0x01
+#define RESET_IPV6_ADDRESSES 0x02
+#define RESET_ALL_ADDRESSES  (RESET_IPV4_ADDRESSES | RESET_IPV6_ADDRESSES)
+
+int ifc_reset_connections(const char *ifname, const int reset_mask)
 {
 #ifdef HAVE_ANDROID_OS
-    int result;
+    int result, success;
     in_addr_t myaddr;
     struct ifreq ifr;
+    struct in6_ifreq ifr6;
 
-    ifc_init();
-    ifc_get_info(ifname, &myaddr, NULL, NULL);
-    ifc_init_ifr(ifname, &ifr);
-    init_sockaddr_in(&ifr.ifr_addr, myaddr);
-    result = ioctl(ifc_ctl_sock, SIOCKILLADDR,  &ifr);
-    ifc_close();
+    if (reset_mask & RESET_IPV4_ADDRESSES) {
+        /* IPv4. Clear connections on the IP address. */
+        ifc_init();
+        ifc_get_info(ifname, &myaddr, NULL, NULL);
+        ifc_init_ifr(ifname, &ifr);
+        init_sockaddr_in(&ifr.ifr_addr, myaddr);
+        result = ioctl(ifc_ctl_sock, SIOCKILLADDR,  &ifr);
+        ifc_close();
+    } else {
+        result = 0;
+    }
+
+    if (reset_mask & RESET_IPV6_ADDRESSES) {
+        /*
+         * IPv6. On Linux, when an interface goes down it loses all its IPv6
+         * addresses, so we don't know which connections belonged to that interface
+         * So we clear all unused IPv6 connections on the device by specifying an
+         * empty IPv6 address.
+         */
+        ifc_init6();
+        // This implicitly specifies an address of ::, i.e., kill all IPv6 sockets.
+        memset(&ifr6, 0, sizeof(ifr6));
+        success = ioctl(ifc_ctl_sock6, SIOCKILLADDR,  &ifr6);
+        if (result == 0) {
+            result = success;
+        }
+        ifc_close6();
+    }
 
     return result;
 #else
@@ -439,67 +456,6 @@ int ifc_remove_host_routes(const char *name)
     fclose(fp);
     ifc_close();
     return 0;
-}
-
-/*
- * Return the address of the default gateway
- *
- * TODO: factor out common code from this and remove_host_routes()
- * so that we only scan /proc/net/route in one place.
- */
-int ifc_get_default_route(const char *ifname)
-{
-    char name[64];
-    in_addr_t dest, gway, mask;
-    int flags, refcnt, use, metric, mtu, win, irtt;
-    int result;
-    FILE *fp;
-
-    fp = fopen("/proc/net/route", "r");
-    if (fp == NULL)
-        return 0;
-    /* Skip the header line */
-    if (fscanf(fp, "%*[^\n]\n") < 0) {
-        fclose(fp);
-        return 0;
-    }
-    ifc_init();
-    result = 0;
-    for (;;) {
-        int nread = fscanf(fp, "%63s%X%X%X%d%d%d%X%d%d%d\n",
-                           name, &dest, &gway, &flags, &refcnt, &use, &metric, &mask,
-                           &mtu, &win, &irtt);
-        if (nread != 11) {
-            break;
-        }
-        if ((flags & (RTF_UP|RTF_GATEWAY)) == (RTF_UP|RTF_GATEWAY)
-                && dest == 0
-                && strcmp(ifname, name) == 0) {
-            result = gway;
-            break;
-        }
-    }
-    fclose(fp);
-    ifc_close();
-    return result;
-}
-
-/*
- * Sets the specified gateway as the default route for the named interface.
- */
-int ifc_set_default_route(const char *ifname, in_addr_t gateway)
-{
-    struct in_addr addr;
-    int result;
-
-    ifc_init();
-    addr.s_addr = gateway;
-    if ((result = ifc_create_default_route(ifname, gateway)) < 0) {
-        LOGD("failed to add %s as default route for %s: %s",
-             inet_ntoa(addr), ifname, strerror(errno));
-    }
-    ifc_close();
-    return result;
 }
 
 /*
@@ -565,7 +521,7 @@ ifc_configure(const char *ifname,
     return 0;
 }
 
-int ifc_add_ipv6_route(const char *ifname, struct in6_addr dst, int prefix_length,
+int ifc_act_on_ipv6_route(int action, const char *ifname, struct in6_addr dst, int prefix_length,
       struct in6_addr gw)
 {
     struct in6_rtmsg rtmsg;
@@ -600,7 +556,7 @@ int ifc_add_ipv6_route(const char *ifname, struct in6_addr dst, int prefix_lengt
         return -errno;
     }
 
-    result = ioctl(ifc_ctl_sock6, SIOCADDRT, &rtmsg);
+    result = ioctl(ifc_ctl_sock6, action, &rtmsg);
     if (result < 0) {
         if (errno == EEXIST) {
             result = 0;
@@ -612,8 +568,8 @@ int ifc_add_ipv6_route(const char *ifname, struct in6_addr dst, int prefix_lengt
     return result;
 }
 
-int ifc_add_route(const char *ifname, const char *dst, int prefix_length,
-      const char *gw)
+int ifc_act_on_route(int action, const char *ifname, const char *dst, int prefix_length,
+        const char *gw)
 {
     int ret = 0;
     struct sockaddr_in ipv4_dst, ipv4_gw;
@@ -631,12 +587,19 @@ int ifc_add_route(const char *ifname, const char *dst, int prefix_length,
         return -EINVAL;
     }
 
-    if (gw == NULL) {
+    if (gw == NULL || (strlen(gw) == 0)) {
         if (addr_ai->ai_family == AF_INET6) {
             gw = "::";
         } else if (addr_ai->ai_family == AF_INET) {
             gw = "0.0.0.0";
         }
+    }
+
+    if (((addr_ai->ai_family == AF_INET6) && (prefix_length < 0 || prefix_length > 128)) ||
+            ((addr_ai->ai_family == AF_INET) && (prefix_length < 0 || prefix_length > 32))) {
+        printerr("ifc_add_route: invalid prefix length");
+        freeaddrinfo(addr_ai);
+        return -EINVAL;
     }
 
     ret = getaddrinfo(gw, NULL, &hints, &gw_ai);
@@ -656,13 +619,13 @@ int ifc_add_route(const char *ifname, const char *dst, int prefix_length,
     if (addr_ai->ai_family == AF_INET6) {
         memcpy(&ipv6_dst, addr_ai->ai_addr, sizeof(struct sockaddr_in6));
         memcpy(&ipv6_gw, gw_ai->ai_addr, sizeof(struct sockaddr_in6));
-        ret = ifc_add_ipv6_route(ifname, ipv6_dst.sin6_addr, prefix_length,
-              ipv6_gw.sin6_addr);
+        ret = ifc_act_on_ipv6_route(action, ifname, ipv6_dst.sin6_addr,
+                prefix_length, ipv6_gw.sin6_addr);
     } else if (addr_ai->ai_family == AF_INET) {
         memcpy(&ipv4_dst, addr_ai->ai_addr, sizeof(struct sockaddr_in));
         memcpy(&ipv4_gw, gw_ai->ai_addr, sizeof(struct sockaddr_in));
-        ret = ifc_add_ipv4_route(ifname, ipv4_dst.sin_addr, prefix_length,
-              ipv4_gw.sin_addr);
+        ret = ifc_act_on_ipv4_route(action, ifname, ipv4_dst.sin_addr,
+                prefix_length, ipv4_gw.sin_addr);
     } else {
         printerr("ifc_add_route: getaddrinfo returned un supported address family %d\n",
                   addr_ai->ai_family);
@@ -672,4 +635,14 @@ int ifc_add_route(const char *ifname, const char *dst, int prefix_length,
     freeaddrinfo(addr_ai);
     freeaddrinfo(gw_ai);
     return ret;
+}
+
+int ifc_add_route(const char *ifname, const char *dst, int prefix_length, const char *gw)
+{
+    return ifc_act_on_route(SIOCADDRT, ifname, dst, prefix_length, gw);
+}
+
+int ifc_remove_route(const char *ifname, const char*dst, int prefix_length, const char *gw)
+{
+    return ifc_act_on_route(SIOCDELRT, ifname, dst, prefix_length, gw);
 }
