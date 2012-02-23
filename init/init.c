@@ -603,8 +603,6 @@ static int set_init_properties_action(int nargs, char **args)
 
     if ((tmpdev = getenv("HWACCEL")) && tmpdev[0] == '0') {
         property_set("debug.egl.hw", tmpdev);
-        // a temporary workaround to disable hardware specific gralloc
-        hardware[0] = '\0';
     }
     property_set("ro.hardware", hardware);
     snprintf(tmp, PROP_VALUE_MAX, "%d", revision);
