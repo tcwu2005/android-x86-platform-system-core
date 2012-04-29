@@ -205,7 +205,7 @@ static struct fs_path_config android_files[] = {
     { 06755, AID_ROOT,      AID_ROOT,      "system/xbin/procrank" },
     { 06755, AID_ROOT,      AID_ROOT,      "system/xbin/procmem" },
     { 06755, AID_ROOT,      AID_ROOT,      "system/xbin/tcpdump" },
-    { 04770, AID_ROOT,      AID_RADIO,     "system/bin/pppd-ril" },
+    { 04750, AID_ROOT,      AID_RADIO,     "system/bin/pppd" },
 		/* the following file is INTENTIONALLY set-uid, and IS included
 		 * in user builds. */
     { 06750, AID_ROOT,      AID_SHELL,     "system/bin/run-as" },
