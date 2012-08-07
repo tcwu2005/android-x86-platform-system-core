@@ -33,6 +33,9 @@ TOOLS := \
 	df \
 	getprop \
 	setprop \
+	cmpprop \
+	trygetprop \
+	trycmpprop \
 	watchprops \
 	log \
 	sleep \
