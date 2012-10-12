@@ -238,6 +238,10 @@ powerctl
 restart <service>
    Like stop, but doesn't disable the service.
 
+readprops <path>
+   Read and set system properties based on the contents of a text file
+   at <path>
+
 restorecon <path> [ <path> ]*
    Restore the file named by <path> to the security context specified
    in the file_contexts configuration.

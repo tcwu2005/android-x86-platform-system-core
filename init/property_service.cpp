@@ -357,8 +357,6 @@ void get_property_workspace(int *fd, int *sz)
     *sz = pa_workspace.size;
 }
 
-static void load_properties_from_file(const char *, const char *);
-
 /*
  * Filter is used to decide which properties to load: NULL loads all keys,
  * "ro.foo.*" is a prefix match, and "ro.foo.bar" is an exact match.
@@ -423,14 +421,18 @@ static void load_properties(char *data, const char *filter)
  * Filter is used to decide which properties to load: NULL loads all keys,
  * "ro.foo.*" is a prefix match, and "ro.foo.bar" is an exact match.
  */
-static void load_properties_from_file(const char* filename, const char* filter) {
+int load_properties_from_file(const char* filename, const char* filter) {
     Timer t;
     std::string data;
     if (read_file(filename, &data)) {
         data.push_back('\n');
         load_properties(&data[0], filter);
+    } else {
+        ERROR("Unable to read property file '%s'\n", filename);
+        return -1;
     }
     NOTICE("(Loading properties from %s took %.2fs.)\n", filename, t.duration());
+    return 0;
 }
 
 static void load_persistent_properties() {
