@@ -40,6 +40,7 @@ int do_chmod(int nargs, char **args);
 int do_loglevel(int nargs, char **args);
 int do_load_persist_props(int nargs, char **args);
 int do_wait(int nargs, char **args);
+int do_readprops(int nargs, char **args);
 #define __MAKE_KEYWORD_ENUM__
 #define KEYWORD(symbol, flags, nargs, func) K_##symbol,
 enum {
@@ -72,6 +73,7 @@ enum {
     KEYWORD(onrestart,   OPTION,  0, 0)
     KEYWORD(powerctl,    COMMAND, 1, do_powerctl)
     KEYWORD(probemod,    COMMAND, 1, do_probemod)
+    KEYWORD(readprops,   COMMAND, 1, do_readprops)
     KEYWORD(restart,     COMMAND, 1, do_restart)
     KEYWORD(restorecon,  COMMAND, 1, do_restorecon)
     KEYWORD(rm,          COMMAND, 1, do_rm)
