@@ -859,6 +859,9 @@ int main(int argc, char **argv)
 
     process_kernel_cmdline();
 
+    if ((tmpdev = getenv("HWACCEL")) && tmpdev[0] == '0') {
+        property_set("debug.egl.hw", tmpdev);
+    }
     union selinux_callback cb;
     cb.func_log = klog_write;
     selinux_set_callback(SELINUX_CB_LOG, cb);
@@ -909,6 +912,9 @@ int main(int argc, char **argv)
         action_for_each_trigger("fs", action_add_queue_tail);
         action_for_each_trigger("post-fs", action_add_queue_tail);
         action_for_each_trigger("post-fs-data", action_add_queue_tail);
+    }
+    if ((tmpdev = getenv("DEBUG")) && *tmpdev && tmpdev[0] != '0') {
+        action_for_each_trigger("debug", action_add_queue_tail);
     }
 
     queue_builtin_action(property_service_init_action, "property_service_init");
