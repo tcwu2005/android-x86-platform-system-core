@@ -117,6 +117,8 @@ LOCAL_SRC_FILES := \
 	usb_linux_client.c \
 	log_service.c
 
+LOCAL_C_INCLUDES += $(LOCAL_PATH)/../include/private
+
 LOCAL_CFLAGS := -O2 -g -DADB_HOST=0 -Wall -Wno-unused-parameter
 LOCAL_CFLAGS += -D_XOPEN_SOURCE -D_GNU_SOURCE
 
