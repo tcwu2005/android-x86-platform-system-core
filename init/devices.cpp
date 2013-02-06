@@ -59,7 +59,6 @@ static const char *firmware_dirs[] = { "/etc/firmware",
                                        "/firmware/image" };
 #endif
 
-#define MODULES_ALIAS   "/system/lib/modules/modules.alias"
 #define MODULES_BLKLST  "/system/etc/modules.blacklist"
 #define READ_MODULES_ALIAS	1
 #define READ_MODULES_BLKLST	2
@@ -807,7 +806,7 @@ static int load_module_by_device_modalias(const char *id)
                 INFO("trying to load module %s due to uevents\n", alias->name);
 
                 if (!is_module_blacklisted(alias->name)) {
-                    if (insmod_by_dep(alias->name, "", NULL, 1, NULL)) {
+                    if (insmod_by_dep(alias->name, "", NULL, 0, NULL)) {
                         /* cannot load module. try another one since
                          * there may be another match.
                          */
@@ -1126,7 +1125,7 @@ static int __read_modules_desc_file(int mode)
     struct parse_state state;
     char *args[3];
     int nargs;
-    char *fn;
+    char fn[PATH_MAX];
     int fd = -1;
     int ret = -1;
     int args_to_read = 0;
@@ -1134,14 +1133,10 @@ static int __read_modules_desc_file(int mode)
 
     if (mode == READ_MODULES_ALIAS) {
         /* read modules.alias */
-        if (asprintf(&fn, "%s", MODULES_ALIAS) <= 0) {
-            goto out;
-        }
+        strcat(get_default_mod_path(fn), "modules.alias");
     } else if (mode == READ_MODULES_BLKLST) {
         /* read modules.blacklist */
-        if (asprintf(&fn, "%s", MODULES_BLKLST) <= 0) {
-            goto out;
-        }
+        strcpy(fn, MODULES_BLKLST);
     } else {
         /* unknown mode */
         goto out;
