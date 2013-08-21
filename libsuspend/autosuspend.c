@@ -18,6 +18,7 @@
 
 #define LOG_TAG "libsuspend"
 #include <cutils/log.h>
+#include <cutils/properties.h>
 
 #include <suspend/autosuspend.h>
 
@@ -29,16 +30,20 @@ static bool autosuspend_inited;
 
 static int autosuspend_init(void)
 {
+    int autosleep;
+    char propbuf[PROPERTY_VALUE_MAX];
     if (autosuspend_inited) {
         return 0;
     }
 
-    autosuspend_ops = autosuspend_autosleep_init();
+    property_get("debug.autosleep", propbuf, "0");
+    autosleep = (propbuf[0] == '1');
+    autosuspend_ops = autosleep ? autosuspend_autosleep_init() : autosuspend_earlysuspend_init();
     if (autosuspend_ops) {
         goto out;
     }
 
-    autosuspend_ops = autosuspend_earlysuspend_init();
+    autosuspend_ops = autosleep ? autosuspend_earlysuspend_init() : autosuspend_autosleep_init();
     if (autosuspend_ops) {
         goto out;
     }
