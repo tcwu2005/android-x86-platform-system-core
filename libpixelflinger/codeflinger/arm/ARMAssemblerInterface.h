@@ -1,17 +1,17 @@
-/* libs/pixelflinger/codeflinger/ARMAssemblerInterface.h
+/* libs/pixelflinger/codeflinger/arm/ARMAssemblerInterface.h
 **
 ** Copyright 2006, The Android Open Source Project
 **
-** Licensed under the Apache License, Version 2.0 (the "License"); 
-** you may not use this file except in compliance with the License. 
-** You may obtain a copy of the License at 
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
 **
-**     http://www.apache.org/licenses/LICENSE-2.0 
+**     http://www.apache.org/licenses/LICENSE-2.0
 **
-** Unless required by applicable law or agreed to in writing, software 
-** distributed under the License is distributed on an "AS IS" BASIS, 
-** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. 
-** See the License for the specific language governing permissions and 
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
 ** limitations under the License.
 */
 
@@ -82,7 +82,7 @@ public:
     virtual uint32_t    reg_rrx(int Rm) = 0;
     virtual uint32_t    reg_reg(int Rm, int type, int Rs) = 0;
 
-    // addressing modes... 
+    // addressing modes...
     // LDR(B)/STR(B)/PLD
     // (immediate and Rm can be negative, which indicates U=0)
     virtual uint32_t    immed12_pre(int32_t immed12, int W=0) = 0;
@@ -106,7 +106,7 @@ public:
     virtual int  generate(const char* name) = 0;
     virtual void disassemble(const char* name) = 0;
     virtual int  getCodegenArch() = 0;
-    
+
     // construct prolog and epilog
     virtual void prolog() = 0;
     virtual void epilog(uint32_t touched) = 0;
@@ -114,7 +114,7 @@ public:
 
     // data processing...
     enum {
-        opAND, opEOR, opSUB, opRSB, opADD, opADC, opSBC, opRSC, 
+        opAND, opEOR, opSUB, opRSB, opADD, opADC, opSBC, opRSC,
         opTST, opTEQ, opCMP, opCMN, opORR, opMOV, opBIC, opMVN
     };
 
@@ -122,7 +122,7 @@ public:
             dataProcessing( int opcode, int cc, int s,
                             int Rd, int Rn,
                             uint32_t Op2) = 0;
-    
+
     // multiply...
     virtual void MLA(int cc, int s,
                 int Rd, int Rm, int Rs, int Rn) = 0;
@@ -161,7 +161,7 @@ public:
 
     virtual void LDRH (int cc, int Rd,
                 int Rn, uint32_t offset = __immed8_pre(0)) = 0;
-    virtual void LDRSB(int cc, int Rd, 
+    virtual void LDRSB(int cc, int Rd,
                 int Rn, uint32_t offset = __immed8_pre(0)) = 0;
     virtual void LDRSH(int cc, int Rd,
                 int Rn, uint32_t offset = __immed8_pre(0)) = 0;
@@ -194,12 +194,12 @@ public:
     virtual void PLD(int Rn, uint32_t offset) = 0;
 
     virtual void CLZ(int cc, int Rd, int Rm) = 0;
-    
+
     virtual void QADD(int cc, int Rd, int Rm, int Rn) = 0;
     virtual void QDADD(int cc, int Rd, int Rm, int Rn) = 0;
     virtual void QSUB(int cc, int Rd, int Rm, int Rn) = 0;
     virtual void QDSUB(int cc, int Rd, int Rm, int Rn) = 0;
-    
+
     virtual void SMUL(int cc, int xy,
                 int Rd, int Rm, int Rs) = 0;
     virtual void SMULW(int cc, int y,

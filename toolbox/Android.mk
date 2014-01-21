@@ -33,6 +33,9 @@ TOOLS := \
 	df \
 	getprop \
 	setprop \
+	cmpprop \
+	trygetprop \
+	trycmpprop \
 	watchprops \
 	log \
 	sleep \
@@ -95,6 +98,11 @@ LOCAL_SHARED_LIBRARIES := \
 	libc \
 	libusbhost \
 	libselinux
+
+ifeq ($(INTEL_HOUDINI),true)
+LOCAL_CFLAGS += -DWITH_HOUDINI
+LOCAL_STATIC_LIBRARIES := houdini_hook
+endif
 
 LOCAL_MODULE := toolbox
 

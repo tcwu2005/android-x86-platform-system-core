@@ -31,6 +31,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/un.h>
+#include <sys/personality.h>
 
 #include <selinux/selinux.h>
 #include <selinux/label.h>
@@ -93,14 +94,24 @@ static int have_console;
 static char console_name[PROP_VALUE_MAX] = "/dev/console";
 static time_t process_needs_restart;
 
-static const char *ENV[32];
+static const char *ENV[128];
 
 /* add_environment - add "key=value" to the current environment */
 int add_environment(const char *key, const char *val)
 {
-    int n;
+    unsigned int n, kesz;
+    char keyeq[128];
+    int max_vars = sizeof(ENV)/sizeof(ENV[0]) - 1; /* final null for execve */
 
-    for (n = 0; n < 31; n++) {
+    snprintf(keyeq, sizeof(keyeq), "%s=", key);
+    kesz = strlen(keyeq);
+
+    for (n = 0; n < max_vars; n++) {
+        if (ENV[n] && strncmp(ENV[n], keyeq, kesz) == 0) {
+            /* Override */
+            free((char*)ENV[n]);
+            ENV[n] = NULL;
+        }
         if (!ENV[n]) {
             size_t len = strlen(key) + strlen(val) + 2;
             char *entry = malloc(len);
@@ -320,28 +331,33 @@ void service_start(struct service *svc, const char *dynamic_args)
             }
         }
 
-        if (!dynamic_args) {
-            if (execve(svc->args[0], (char**) svc->args, (char**) ENV) < 0) {
-                ERROR("cannot execve('%s'): %s\n", svc->args[0], strerror(errno));
-            }
-        } else {
-            char *arg_ptrs[INIT_PARSER_MAXARGS+1];
-            int arg_idx = svc->nargs;
+        char *arg_ptrs[INIT_PARSER_MAXARGS+1];
+        int arg_idx = svc->nargs;
+        int i;
+        for (i = 0; i < svc->nargs; i++) {
+            arg_ptrs[i] = expand_references(svc->args[i]);
+            if (!arg_ptrs[i])
+                _exit(127);
+        }
+        if (dynamic_args) {
             char *tmp = strdup(dynamic_args);
             char *next = tmp;
             char *bword;
 
-            /* Copy the static arguments */
-            memcpy(arg_ptrs, svc->args, (svc->nargs * sizeof(char *)));
-
-            while((bword = strsep(&next, " "))) {
-                arg_ptrs[arg_idx++] = bword;
-                if (arg_idx == INIT_PARSER_MAXARGS)
-                    break;
+            if (!tmp) {
+                ERROR("strdup: %s\n", strerror(errno));
+                _exit(127);
             }
-            arg_ptrs[arg_idx] = '\0';
-            execve(svc->args[0], (char**) arg_ptrs, (char**) ENV);
+            while((bword = strsep(&next, " ")) && arg_idx < INIT_PARSER_MAXARGS) {
+                arg_ptrs[arg_idx] = expand_references(bword);
+                if (!arg_ptrs[arg_idx])
+                    _exit(127);
+                arg_idx++;
+            }
         }
+        arg_ptrs[arg_idx] = NULL;
+        execve(svc->args[0], (char**) arg_ptrs, (char**) ENV);
+        ERROR("cannot execve('%s'): %s\n", svc->args[0], strerror(errno));
         _exit(127);
     }
 
@@ -490,6 +506,16 @@ static void msg_restart(const char *name)
     }
 }
 
+static void handle_dev_add_msg(const char *name)
+{
+    queue_device_added_removed_triggers(name, true);
+}
+
+static void handle_dev_rem_msg(const char *name)
+{
+    queue_device_added_removed_triggers(name, false);
+}
+
 void handle_control_message(const char *msg, const char *arg)
 {
     if (!strcmp(msg,"start")) {
@@ -498,6 +524,10 @@ void handle_control_message(const char *msg, const char *arg)
         msg_stop(arg);
     } else if (!strcmp(msg,"restart")) {
         msg_restart(arg);
+    } else if (!strcmp(msg,"dev_added")) {
+        handle_dev_add_msg(arg);
+    } else if (!strcmp(msg,"dev_removed")) {
+       handle_dev_rem_msg(arg);
     } else {
         ERROR("unknown control msg '%s'\n", msg);
     }
@@ -535,6 +565,8 @@ static int is_last_command(struct action *act, struct command *cmd)
 void execute_one_command(void)
 {
     int ret;
+    char *args[INIT_PARSER_MAXARGS];
+    int i;
 
     if (!cur_action || !cur_command || is_last_command(cur_action, cur_command)) {
         cur_action = action_remove_queue_head();
@@ -550,8 +582,17 @@ void execute_one_command(void)
     if (!cur_command)
         return;
 
-    ret = cur_command->func(cur_command->nargs, cur_command->args);
+    args[0] = cur_command->args[0];
+    for (i = 1; i < cur_command->nargs; i++) {
+        args[i] = expand_references(cur_command->args[i]);
+        if (!args[i])
+            goto out;
+    }
+    ret = cur_command->func(cur_command->nargs, args);
     INFO("command '%s' r=%d\n", cur_command->args[0], ret);
+out:
+    for (i--; i > 0; i--)
+        free(args[i]);
 }
 
 static int wait_for_coldboot_done_action(int nargs, char **args)
@@ -648,23 +689,28 @@ static int keychord_init_action(int nargs, char **args)
     return 0;
 }
 
+#define SLEEP_MS    50
+
 static int console_init_action(int nargs, char **args)
 {
     int fd;
+    int count = (5000 / SLEEP_MS);
 
     if (console[0]) {
         snprintf(console_name, sizeof(console_name), "/dev/%s", console);
     }
 
-    fd = open(console_name, O_RDWR);
-    if (fd >= 0)
+    /* Block the boot until the console node comes up */
+    while (1) {
+        fd = open(console_name, O_WRONLY);
+        if (fd < 0 && count--)
+            usleep(SLEEP_MS * 1000);
+        else
+            break;
+    }
+    if (fd >= 0) {
         have_console = 1;
-    close(fd);
-
-    if( load_565rle_image(INIT_IMAGE_FILE) ) {
-        fd = open("/dev/tty0", O_WRONLY);
-        if (fd >= 0) {
-            const char *msg =
+        const char *msg =
             "\033[9;0]\n"
             "\n"
             "\n"
@@ -680,9 +726,10 @@ static int console_init_action(int nargs, char **args)
             "\n"
             "\n"
             "             A N D R O I D ";
-            write(fd, msg, strlen(msg));
-            close(fd);
-        }
+        write(fd, msg, strlen(msg));
+        close(fd);
+    } else {
+        ERROR("Gave up trying to open console %s\n", console_name);
     }
     return 0;
 }
@@ -801,6 +848,19 @@ static int property_service_init_action(int nargs, char **args)
     return 0;
 }
 
+static int personality_init_action(int nargs, char **args)
+{
+    char tmp[PROP_VALUE_MAX];
+    int ret;
+    ret = property_get("ro.config.personality", tmp);
+    if (ret && !strcmp(tmp, "compat_layout")) {
+        int old_personality;
+        old_personality = personality((unsigned long)-1);
+        personality(old_personality | ADDR_COMPAT_LAYOUT);
+    }
+    return 0;
+}
+
 static int signal_init_action(int nargs, char **args)
 {
     signal_init();
@@ -827,6 +887,12 @@ static int queue_property_triggers_action(int nargs, char **args)
     queue_all_property_triggers();
     /* enable property triggers */
     property_triggers_enabled = 1;
+    return 0;
+}
+
+static int queue_device_triggers_action(int nargs, char **args)
+{
+    queue_all_device_triggers();
     return 0;
 }
 
@@ -974,8 +1040,13 @@ int main(int argc, char **argv)
     int signal_fd_init = 0;
     int keychord_fd_init = 0;
     bool is_charger = false;
+    char initrc_path[PROP_VALUE_MAX];
 
-    if (!strcmp(basename(argv[0]), "ueventd"))
+    /* If we are called as 'modprobe' command, we run as a
+     * standalone executable and reuse ueventd's logic to do the job.
+     */
+    if (!strcmp(basename(argv[0]), "ueventd")
+            || !strcmp(basename(argv[0]), "modprobe"))
         return ueventd_main(argc, argv);
 
     if (!strcmp(basename(argv[0]), "watchdogd"))
@@ -1042,8 +1113,10 @@ int main(int argc, char **argv)
     if (!is_charger)
         property_load_boot_defaults();
 
-    INFO("reading config file\n");
-    init_parse_config_file("/init.rc");
+    if (property_get("ro.boot.initrc", initrc_path) == 0)
+        strcpy(initrc_path, "/init.rc");
+    INFO("reading config file %s\n", initrc_path);
+    init_parse_config_file(initrc_path);
 
     action_for_each_trigger("early-init", action_add_queue_tail);
 
@@ -1072,6 +1145,7 @@ int main(int argc, char **argv)
     queue_builtin_action(mix_hwrng_into_linux_rng_action, "mix_hwrng_into_linux_rng");
 
     queue_builtin_action(property_service_init_action, "property_service_init");
+    queue_builtin_action(personality_init_action, "personality_init");
     queue_builtin_action(signal_init_action, "signal_init");
     queue_builtin_action(check_startup_action, "check_startup");
 
@@ -1084,6 +1158,10 @@ int main(int argc, char **argv)
 
         /* run all property triggers based on current state of the properties */
     queue_builtin_action(queue_property_triggers_action, "queue_property_triggers");
+
+    /* run all device triggers based on current state of device nodes in /dev */
+    queue_builtin_action(queue_device_triggers_action, "queue_device_triggers");
+
 
 
 #if BOOTCHART

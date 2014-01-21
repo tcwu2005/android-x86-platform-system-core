@@ -1,17 +1,17 @@
-/* libs/pixelflinger/codeflinger/texturing.cpp
+/* libs/pixelflinger/codeflinger/arm/texturing.cpp
 **
 ** Copyright 2006, The Android Open Source Project
 **
-** Licensed under the Apache License, Version 2.0 (the "License"); 
-** you may not use this file except in compliance with the License. 
-** You may obtain a copy of the License at 
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
 **
-**     http://www.apache.org/licenses/LICENSE-2.0 
+**     http://www.apache.org/licenses/LICENSE-2.0
 **
-** Unless required by applicable law or agreed to in writing, software 
-** distributed under the License is distributed on an "AS IS" BASIS, 
-** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. 
-** See the License for the specific language governing permissions and 
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
 ** limitations under the License.
 */
 
@@ -23,7 +23,7 @@
 
 #include <cutils/log.h>
 
-#include "GGLAssembler.h"
+#include "codeflinger/arm/GGLAssembler.h"
 
 #ifdef __ARM_ARCH__
 #include <machine/cpu-features.h>
@@ -66,7 +66,7 @@ void GGLAssembler::init_iterated_color(fragment_parts_t& parts, const reg_t& x)
         else if (optReload <= 0)    parts.reload = 3; // reload both
 
         if (!mSmooth) {
-            // we're not smoothing (just dithering), we never have to 
+            // we're not smoothing (just dithering), we never have to
             // reload the iterators
             parts.reload &= ~2;
         }
@@ -76,11 +76,11 @@ void GGLAssembler::init_iterated_color(fragment_parts_t& parts, const reg_t& x)
         const int t1 = (parts.reload & 2) ? scratches.obtain() : 0;
         for (int i=0 ; i<4 ; i++) {
             if (!mInfo[i].iterated)
-                continue;            
-            
+                continue;
+
             // this component exists in the destination and is not replaced
             // by a texture unit.
-            const int c = (parts.reload & 1) ? t0 : obtainReg();              
+            const int c = (parts.reload & 1) ? t0 : obtainReg();
             if (i==0) CONTEXT_LOAD(c, iterators.ydady);
             if (i==1) CONTEXT_LOAD(c, iterators.ydrdy);
             if (i==2) CONTEXT_LOAD(c, iterators.ydgdy);
@@ -92,7 +92,7 @@ void GGLAssembler::init_iterated_color(fragment_parts_t& parts, const reg_t& x)
                 const int dvdx = parts.argb_dx[i].reg;
                 CONTEXT_LOAD(dvdx, generated_vars.argb[i].dx);
                 MLA(AL, 0, c, x.reg, dvdx, c);
-                
+
                 // adjust the color iterator to make sure it won't overflow
                 if (!mAA) {
                     // this is not needed when we're using anti-aliasing
@@ -102,17 +102,17 @@ void GGLAssembler::init_iterated_color(fragment_parts_t& parts, const reg_t& x)
                     MOV(AL, 0, end, reg_imm(parts.count.reg, LSR, 16));
                     MLA(AL, 1, end, dvdx, end, c);
                     SUB(MI, 0, c, c, end);
-                    BIC(AL, 0, c, c, reg_imm(c, ASR, 31)); 
+                    BIC(AL, 0, c, c, reg_imm(c, ASR, 31));
                     scratches.recycle(end);
                 }
             }
-            
+
             if (parts.reload & 1) {
                 CONTEXT_STORE(c, generated_vars.argb[i].c);
             }
         }
     } else {
-        // We're not smoothed, so we can 
+        // We're not smoothed, so we can
         // just use a packed version of the color and extract the
         // components as needed (or not at all if we don't blend)
 
@@ -123,7 +123,7 @@ void GGLAssembler::init_iterated_color(fragment_parts_t& parts, const reg_t& x)
             if ((info.inDest || info.needed) && !info.replaced)
                 load |= 1;
         }
-        
+
         parts.iterated_packed = 1;
         parts.packed = (!mTextureMachine.mask && !mBlending
                 && !mFog && !mDithering);
@@ -183,7 +183,7 @@ void GGLAssembler::build_iterated_color(
         int component,
         Scratch& regs)
 {
-    fragment.setTo( regs.obtain(), 0, 32, CORRUPTIBLE); 
+    fragment.setTo( regs.obtain(), 0, 32, CORRUPTIBLE);
 
     if (!mInfo[component].iterated)
         return;
@@ -256,11 +256,11 @@ void GGLAssembler::decodeLogicOpNeeds(const needs_t& needs)
     case GGL_NOOP:
     case GGL_INVERT:
         mLogicOp = LOGIC_OP|LOGIC_OP_DST;
-        break;        
+        break;
     case GGL_COPY_INVERTED:
         mLogicOp = LOGIC_OP|LOGIC_OP_SRC;
         break;
-    };        
+    };
 }
 
 void GGLAssembler::decodeTMUNeeds(const needs_t& needs, context_t const* c)
@@ -290,7 +290,7 @@ void GGLAssembler::decodeTMUNeeds(const needs_t& needs, context_t const* c)
         // 5551 linear filtering is not supported
         if (tmu.format_idx == GGL_PIXEL_FORMAT_RGBA_5551)
             tmu.linear = 0;
-        
+
         tmu.mask = 0;
         tmu.replaced = replaced;
 
@@ -344,7 +344,7 @@ void GGLAssembler::init_textures(
         if (tmu.format_idx == 0)
             continue;
         if ((tmu.swrap == GGL_NEEDS_WRAP_11) &&
-            (tmu.twrap == GGL_NEEDS_WRAP_11)) 
+            (tmu.twrap == GGL_NEEDS_WRAP_11))
         {
             // 1:1 texture
             pointer_t& txPtr = coords[i].ptr;
@@ -382,7 +382,7 @@ void GGLAssembler::init_textures(
                 MLA(AL, 0, s.reg, Rx, s.reg, ydsdy);
                 MLA(AL, 0, t.reg, Rx, t.reg, ydtdy);
             }
-            
+
             if ((mOptLevel&1)==0) {
                 CONTEXT_STORE(s.reg, generated_vars.texture[i].spill[0]);
                 CONTEXT_STORE(t.reg, generated_vars.texture[i].spill[1]);
@@ -392,11 +392,11 @@ void GGLAssembler::init_textures(
         }
 
         // direct texture?
-        if (!multiTexture && !mBlending && !mDithering && !mFog && 
+        if (!multiTexture && !mBlending && !mDithering && !mFog &&
             cb_format_idx == tmu.format_idx && !tmu.linear &&
-            mTextureMachine.replaced == tmu.mask) 
+            mTextureMachine.replaced == tmu.mask)
         {
-                mTextureMachine.directTexture = i + 1; 
+                mTextureMachine.directTexture = i + 1;
         }
     }
 }
@@ -428,7 +428,7 @@ void GGLAssembler::build_textures(  fragment_parts_t& parts,
                 // if depth or AA enabled, we'll run out of 1 or 2 registers
                 if (parts.z.reg > 0)
                     spill_list |= 1<<parts.z.reg;
-                if (parts.covPtr.reg > 0)   
+                if (parts.covPtr.reg > 0)
                     spill_list |= 1<<parts.covPtr.reg;
             }
         }
@@ -444,7 +444,7 @@ void GGLAssembler::build_textures(  fragment_parts_t& parts,
 
         pointer_t& txPtr = parts.coords[i].ptr;
         pixel_t& texel = parts.texel[i];
-            
+
         // repeat...
         if ((tmu.swrap == GGL_NEEDS_WRAP_11) &&
             (tmu.twrap == GGL_NEEDS_WRAP_11))
@@ -536,7 +536,7 @@ void GGLAssembler::build_textures(  fragment_parts_t& parts,
                 if (tmu.swrap == GGL_NEEDS_WRAP_REPEAT) {
                     // u has already been REPEATed
                     MOV(AL, 1, u, reg_imm(u, ASR, FRAC_BITS));
-                    MOV(MI, 0, u, width);                    
+                    MOV(MI, 0, u, width);
                     CMP(AL, u, width);
                     MOV(LT, 0, width, imm(1 << shift));
                     if (shift)
@@ -555,7 +555,7 @@ void GGLAssembler::build_textures(  fragment_parts_t& parts,
                     //      u = 0
                     //      width = 0
                     // generated_vars.rt = width
-                    
+
                     CMP(AL, width, reg_imm(u, ASR, FRAC_BITS));
                     MOV(LE, 0, u, reg_imm(width, LSL, FRAC_BITS));
                     MOV(LE, 0, width, imm(0));
@@ -594,7 +594,7 @@ void GGLAssembler::build_textures(  fragment_parts_t& parts,
                 }
                 CONTEXT_STORE(height, generated_vars.lb);
             }
-    
+
             scratches.recycle(width);
             scratches.recycle(height);
 
@@ -630,7 +630,7 @@ void GGLAssembler::build_textures(  fragment_parts_t& parts,
 
             CONTEXT_LOAD(stride,    generated_vars.texture[i].stride);
             CONTEXT_LOAD(txPtr.reg, generated_vars.texture[i].data);
-            SMLABB(AL, u, v, stride, u);    // u+v*stride 
+            SMLABB(AL, u, v, stride, u);    // u+v*stride
             base_offset(txPtr, txPtr, u);
 
             // load texel
@@ -650,7 +650,7 @@ void GGLAssembler::build_textures(  fragment_parts_t& parts,
                 case 3: filter24(parts, texel, tmu, U, V, txPtr, FRAC_BITS); break;
                 case 4: filter32(parts, texel, tmu, U, V, txPtr, FRAC_BITS); break;
                 }
-            }            
+            }
         }
     }
 }
@@ -731,14 +731,14 @@ void GGLAssembler::filter8(
     SMULBB(AL, u, U, V);
     SMULBB(AL, d, pixel, u);
     RSB(AL, 0, k, u, imm(1<<(FRAC_BITS*2)));
-    
+
     // LB -> (1-U) * V
     RSB(AL, 0, U, U, imm(1<<FRAC_BITS));
     LDRB(AL, pixel, txPtr.reg, reg_scale_pre(lb));
     SMULBB(AL, u, U, V);
     SMLABB(AL, d, pixel, u, d);
     SUB(AL, 0, k, k, u);
-    
+
     // LT -> (1-U)*(1-V)
     RSB(AL, 0, V, V, imm(1<<FRAC_BITS));
     LDRB(AL, pixel, txPtr.reg);
@@ -749,7 +749,7 @@ void GGLAssembler::filter8(
     LDRB(AL, pixel, txPtr.reg, reg_scale_pre(rt));
     SUB(AL, 0, u, k, u);
     SMLABB(AL, texel.reg, pixel, u, d);
-    
+
     for (int i=0 ; i<4 ; i++) {
         if (!texel.format.c[i].h) continue;
         texel.format.c[i].h = FRAC_BITS*2+8;
@@ -765,7 +765,7 @@ void GGLAssembler::filter16(
         pixel_t& texel, const texture_unit_t& tmu,
         int U, int V, pointer_t& txPtr,
         int FRAC_BITS)
-{    
+{
     // compute the mask
     // XXX: it would be nice if the mask below could be computed
     // automatically.
@@ -840,7 +840,7 @@ void GGLAssembler::filter16(
     }
     MUL(AL, 0, d, pixel, u);
     RSB(AL, 0, k, u, imm(1<<prec));
-    
+
     // LB -> (1-U) * V
     CONTEXT_LOAD(offset, generated_vars.lb);
     RSB(AL, 0, U, U, imm(1<<FRAC_BITS));
@@ -855,7 +855,7 @@ void GGLAssembler::filter16(
     }
     MLA(AL, 0, d, pixel, u, d);
     SUB(AL, 0, k, k, u);
-    
+
     // LT -> (1-U)*(1-V)
     RSB(AL, 0, V, V, imm(1<<FRAC_BITS));
     LDRH(AL, pixel, txPtr.reg);
@@ -869,7 +869,7 @@ void GGLAssembler::filter16(
     }
     MLA(AL, 0, d, pixel, u, d);
 
-    // RT -> U*(1-V)            
+    // RT -> U*(1-V)
     CONTEXT_LOAD(offset, generated_vars.rt);
     LDRH(AL, pixel, txPtr.reg, reg_pre(offset));
     SUB(AL, 0, u, k, u);
@@ -901,7 +901,7 @@ void GGLAssembler::filter32(
     const int prescale = 16 - adjust;
 
     Scratch scratches(registerFile());
-    
+
     int pixel= scratches.obtain();
     int dh   = scratches.obtain();
     int u    = scratches.obtain();
@@ -953,7 +953,7 @@ void GGLAssembler::filter32(
         ADD(AL, 0, u, u, imm(1<<(adjust-1)));
         MOV(AL, 0, u, reg_imm(u, LSR, adjust));
     }
-    MLA(AL, 0, dh, temp, u, dh);    
+    MLA(AL, 0, dh, temp, u, dh);
     UXTB16(AL, temp, pixellb, 8);
     MLA(AL, 0, dl, temp, u, dl);
     SUB(AL, 0, k, k, u);
@@ -971,15 +971,15 @@ void GGLAssembler::filter32(
         ADD(AL, 0, u, u, imm(1<<(adjust-1)));
         MOV(AL, 0, u, reg_imm(u, LSR, adjust));
     }
-    MLA(AL, 0, dh, temp, u, dh);    
+    MLA(AL, 0, dh, temp, u, dh);
     UXTB16(AL, temp, pixel, 8);
     MLA(AL, 0, dl, temp, u, dl);
 
-    // RT -> U*(1-V)            
+    // RT -> U*(1-V)
     LDR(AL, pixel, txPtr.reg, reg_scale_pre(offsetrt));
     SUB(AL, 0, u, k, u);
     UXTB16(AL, temp, pixel, 0);
-    MLA(AL, 0, dh, temp, u, dh);    
+    MLA(AL, 0, dh, temp, u, dh);
     UXTB16(AL, temp, pixel, 8);
     MLA(AL, 0, dl, temp, u, dl);
 
@@ -1000,7 +1000,7 @@ void GGLAssembler::filter32(
     // ------------------------
     // about ~38 cycles / pixel
     Scratch scratches(registerFile());
-    
+
     int pixel= scratches.obtain();
     int dh   = scratches.obtain();
     int u    = scratches.obtain();
@@ -1043,7 +1043,7 @@ void GGLAssembler::filter32(
             ADD(AL, 0, u, u, imm(1<<(adjust-1)));
         MOV(AL, 0, u, reg_imm(u, LSR, adjust));
     }
-    MLA(AL, 0, dh, temp, u, dh);    
+    MLA(AL, 0, dh, temp, u, dh);
     AND(AL, 0, temp, mask, reg_imm(pixel, LSR, 8));
     MLA(AL, 0, dl, temp, u, dl);
     SUB(AL, 0, k, k, u);
@@ -1058,16 +1058,16 @@ void GGLAssembler::filter32(
             ADD(AL, 0, u, u, imm(1<<(adjust-1)));
         MOV(AL, 0, u, reg_imm(u, LSR, adjust));
     }
-    MLA(AL, 0, dh, temp, u, dh);    
+    MLA(AL, 0, dh, temp, u, dh);
     AND(AL, 0, temp, mask, reg_imm(pixel, LSR, 8));
     MLA(AL, 0, dl, temp, u, dl);
 
-    // RT -> U*(1-V)            
+    // RT -> U*(1-V)
     CONTEXT_LOAD(offset, generated_vars.rt);
     LDR(AL, pixel, txPtr.reg, reg_scale_pre(offset));
     SUB(AL, 0, u, k, u);
     AND(AL, 0, temp, mask, pixel);
-    MLA(AL, 0, dh, temp, u, dh);    
+    MLA(AL, 0, dh, temp, u, dh);
     AND(AL, 0, temp, mask, reg_imm(pixel, LSR, 8));
     MLA(AL, 0, dl, temp, u, dl);
 
@@ -1096,7 +1096,7 @@ void GGLAssembler::build_texture_environment(
                 Scratch scratches(registerFile());
                 pixel_t texel(parts.texel[i]);
 
-                if (multiTexture && 
+                if (multiTexture &&
                     tmu.swrap == GGL_NEEDS_WRAP_11 &&
                     tmu.twrap == GGL_NEEDS_WRAP_11)
                 {
@@ -1108,7 +1108,7 @@ void GGLAssembler::build_texture_environment(
 
                 component_t incoming(fragment);
                 modify(fragment, regs);
-                
+
                 switch (tmu.env) {
                 case GGL_REPLACE:
                     extract(fragment, texel, component);
@@ -1169,12 +1169,12 @@ void GGLAssembler::wrapping(
 // ---------------------------------------------------------------------------
 
 void GGLAssembler::modulate(
-        component_t& dest, 
+        component_t& dest,
         const component_t& incoming,
         const pixel_t& incomingTexel, int component)
 {
     Scratch locals(registerFile());
-    integer_t texel(locals.obtain(), 32, CORRUPTIBLE);            
+    integer_t texel(locals.obtain(), 32, CORRUPTIBLE);
     extract(texel, incomingTexel, component);
 
     const int Nt = texel.size();
@@ -1202,7 +1202,7 @@ void GGLAssembler::modulate(
         int shift = incoming.l;
         if ((Nt + Ni) > 32) {
             // we will overflow, reduce the precision of Ni to 8 bits
-            // (Note Nt cannot be more than 10 bits which happens with 
+            // (Note Nt cannot be more than 10 bits which happens with
             // 565 textures and GGL_LINEAR)
             shift += Ni-8;
             Ni = 8;
@@ -1225,7 +1225,7 @@ void GGLAssembler::modulate(
             if (Nt<16 && Ni<16) SMULBB(AL, dest.reg, texel.reg, dest.reg);
             else                MUL(AL, 0, dest.reg, texel.reg, dest.reg);
             dest.l = Ni;
-            dest.h = Nt + Ni;            
+            dest.h = Nt + Ni;
         } else {
             if (shift && (shift != 16)) {
                 // if shift==16, we can use 16-bits mul instructions later
@@ -1259,7 +1259,7 @@ void GGLAssembler::modulate(
 }
 
 void GGLAssembler::decal(
-        component_t& dest, 
+        component_t& dest,
         const component_t& incoming,
         const pixel_t& incomingTexel, int component)
 {
@@ -1267,12 +1267,12 @@ void GGLAssembler::decal(
     // Cv = Cf*(1 - At) + Ct*At = Cf + (Ct - Cf)*At
     // Av = Af
     Scratch locals(registerFile());
-    integer_t texel(locals.obtain(), 32, CORRUPTIBLE);            
+    integer_t texel(locals.obtain(), 32, CORRUPTIBLE);
     integer_t factor(locals.obtain(), 32, CORRUPTIBLE);
     extract(texel, incomingTexel, component);
     extract(factor, incomingTexel, GGLFormat::ALPHA);
 
-    // no need to keep more than 8-bits for decal 
+    // no need to keep more than 8-bits for decal
     int Ni = incoming.size();
     int shift = incoming.l;
     if (Ni > 8) {
@@ -1290,7 +1290,7 @@ void GGLAssembler::decal(
 }
 
 void GGLAssembler::blend(
-        component_t& dest, 
+        component_t& dest,
         const component_t& incoming,
         const pixel_t& incomingTexel, int component, int tmu)
 {
@@ -1302,15 +1302,15 @@ void GGLAssembler::blend(
         modulate(dest, incoming, incomingTexel, component);
         return;
     }
-    
+
     Scratch locals(registerFile());
-    integer_t color(locals.obtain(), 8, CORRUPTIBLE);            
+    integer_t color(locals.obtain(), 8, CORRUPTIBLE);
     integer_t factor(locals.obtain(), 32, CORRUPTIBLE);
     LDRB(AL, color.reg, mBuilderContext.Rctx,
             immed12_pre(GGL_OFFSETOF(state.texture[tmu].env_color[component])));
     extract(factor, incomingTexel, component);
 
-    // no need to keep more than 8-bits for blend 
+    // no need to keep more than 8-bits for blend
     int Ni = incoming.size();
     int shift = incoming.l;
     if (Ni > 8) {
@@ -1328,14 +1328,14 @@ void GGLAssembler::blend(
 }
 
 void GGLAssembler::add(
-        component_t& dest, 
+        component_t& dest,
         const component_t& incoming,
         const pixel_t& incomingTexel, int component)
 {
     // RGBA:
     // Cv = Cf + Ct;
     Scratch locals(registerFile());
-    
+
     component_t incomingTemp(incoming);
 
     // use "dest" as a temporary for extracting the texel, unless "dest"
@@ -1370,4 +1370,3 @@ void GGLAssembler::add(
 // ----------------------------------------------------------------------------
 
 }; // namespace android
-

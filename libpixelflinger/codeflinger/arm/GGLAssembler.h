@@ -2,16 +2,16 @@
 **
 ** Copyright 2006, The Android Open Source Project
 **
-** Licensed under the Apache License, Version 2.0 (the "License"); 
-** you may not use this file except in compliance with the License. 
-** You may obtain a copy of the License at 
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
 **
-**     http://www.apache.org/licenses/LICENSE-2.0 
+**     http://www.apache.org/licenses/LICENSE-2.0
 **
-** Unless required by applicable law or agreed to in writing, software 
-** distributed under the License is distributed on an "AS IS" BASIS, 
-** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. 
-** See the License for the specific language governing permissions and 
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
 ** limitations under the License.
 */
 
@@ -24,8 +24,7 @@
 
 #include <private/pixelflinger/ggl_context.h>
 
-#include "ARMAssemblerProxy.h"
-
+#include "codeflinger/arm/ARMAssemblerProxy.h"
 
 namespace android {
 
@@ -42,7 +41,7 @@ class RegisterAllocator
 {
 public:
     class RegisterFile;
-    
+
                     RegisterAllocator(int arch);
     RegisterFile&   registerFile();
     int             reserveReg(int reg);
@@ -74,11 +73,11 @@ public:
         inline  int         isUsed(int reg) const;
 
                 bool        hasFreeRegs() const;
-                int         countFreeRegs() const;                
+                int         countFreeRegs() const;
 
                 uint32_t    touched() const;
         inline  uint32_t    status() const { return mStatus; }
-        
+
         enum {
             OUT_OF_REGISTERS = 0x1
         };
@@ -91,17 +90,17 @@ public:
         uint32_t    mRegisterOffset;    // lets reg alloc use 2..17 for mips
                                         // while arm uses 0..15
     };
- 
+
     class Scratch
     {
     public:
             Scratch(RegisterFile& regFile)
-                : mRegFile(regFile), mScratch(0) { 
+                : mRegFile(regFile), mScratch(0) {
             }
             ~Scratch() {
                 mRegFile.recycleSeveral(mScratch);
             }
-        int obtain() { 
+        int obtain() {
             int reg = mRegFile.obtain();
             mScratch |= 1<<reg;
             return reg;
@@ -160,7 +159,7 @@ public:
         uint32_t                mRegList;
         int                     mCount;
     };
-    
+
 private:
     RegisterFile    mRegs;
 };
@@ -222,7 +221,7 @@ public:
             int8_t s;
             inline int size() const { return s; }
         };
-        
+
         struct pixel_t : public reg_t {
             pixel_t() : reg_t() {
                 memset(&format, 0, sizeof(GGLFormat));
@@ -255,7 +254,7 @@ public:
                 : reg_t(rhs.reg, rhs.flags), h(rhs.s), l(0) {
             }
             explicit component_t(const pixel_t& rhs, int component) {
-                setTo(  rhs.reg, 
+                setTo(  rhs.reg,
                         rhs.format.c[component].l,
                         rhs.format.c[component].h,
                         rhs.flags|CLEAR_LO|CLEAR_HI);
@@ -303,7 +302,7 @@ private:
         pixel_t     texel[GGL_TEXTURE_UNIT_COUNT];
         tex_coord_t coords[GGL_TEXTURE_UNIT_COUNT];
     };
-    
+
     struct texture_unit_t {
         int         format_idx;
         GGLFormat   format;
@@ -374,8 +373,8 @@ private:
     // load/store stuff
     void    store(const pointer_t& addr, const pixel_t& src, uint32_t flags=0);
     void    load(const pointer_t& addr, const pixel_t& dest, uint32_t flags=0);
-    void    extract(integer_t& d, const pixel_t& s, int component);    
-    void    extract(component_t& d, const pixel_t& s, int component);    
+    void    extract(integer_t& d, const pixel_t& s, int component);
+    void    extract(component_t& d, const pixel_t& s, int component);
     void    extract(integer_t& d, int s, int h, int l, int bits=32);
     void    expand(integer_t& d, const integer_t& s, int dbits);
     void    expand(integer_t& d, const component_t& s, int dbits);
@@ -408,7 +407,7 @@ private:
                                 const fragment_parts_t& parts,
                                 int component,
                                 Scratch& global_scratches);
-                                
+
     void    build_incoming_component(
                                 component_t& temp,
                                 int dst_size,
@@ -425,7 +424,7 @@ private:
                                     Scratch& regs);
 
     void    decodeLogicOpNeeds(const needs_t& needs);
-    
+
     void    decodeTMUNeeds(const needs_t& needs, context_t const* c);
 
     void    init_textures(  tex_coord_t* coords,
@@ -481,12 +480,12 @@ private:
                 Scratch& scratches);
 
     void    build_blendFOneMinusF(  component_t& temp,
-                                    const integer_t& factor, 
+                                    const integer_t& factor,
                                     const integer_t& fragment,
                                     const integer_t& fb);
 
     void    build_blendOneMinusFF(  component_t& temp,
-                                    const integer_t& factor, 
+                                    const integer_t& factor,
                                     const integer_t& fragment,
                                     const integer_t& fb);
 
@@ -496,7 +495,7 @@ private:
 
     void build_alpha_test(component_t& fragment, const fragment_parts_t& parts);
 
-    enum { Z_TEST=1, Z_WRITE=2 }; 
+    enum { Z_TEST=1, Z_WRITE=2 };
     void build_depth_test(const fragment_parts_t& parts, uint32_t mask);
     void build_iterate_z(const fragment_parts_t& parts);
     void build_iterate_f(const fragment_parts_t& parts);
@@ -511,9 +510,9 @@ private:
     bool    isAlphaSourceNeeded() const;
 
     enum {
-        FACTOR_SRC=1, FACTOR_DST=2, BLEND_SRC=4, BLEND_DST=8 
+        FACTOR_SRC=1, FACTOR_DST=2, BLEND_SRC=4, BLEND_DST=8
     };
-    
+
     enum {
         LOGIC_OP=1, LOGIC_OP_SRC=2, LOGIC_OP_DST=4
     };
@@ -535,19 +534,19 @@ private:
     int             mSmooth;
     int             mFog;
     pixel_t         mDstPixel;
-    
+
     GGLFormat       mCbFormat;
-    
+
     int             mBlendFactorCached;
     integer_t       mAlphaSource;
-    
+
     int             mBaseRegister;
-    
+
     int             mBlendSrc;
     int             mBlendDst;
     int             mBlendSrcA;
     int             mBlendDstA;
-    
+
     int             mOptLevel;
 };
 

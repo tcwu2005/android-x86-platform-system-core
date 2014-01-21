@@ -1,17 +1,17 @@
-/* libs/pixelflinger/codeflinger/ARMAssemblerProxy.cpp
+/* libs/pixelflinger/codeflinger/arm/ARMAssemblerProxy.cpp
 **
 ** Copyright 2006, The Android Open Source Project
 **
-** Licensed under the Apache License, Version 2.0 (the "License"); 
-** you may not use this file except in compliance with the License. 
-** You may obtain a copy of the License at 
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
 **
-**     http://www.apache.org/licenses/LICENSE-2.0 
+**     http://www.apache.org/licenses/LICENSE-2.0
 **
-** Unless required by applicable law or agreed to in writing, software 
-** distributed under the License is distributed on an "AS IS" BASIS, 
-** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. 
-** See the License for the specific language governing permissions and 
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
 ** limitations under the License.
 */
 
@@ -19,7 +19,7 @@
 #include <stdint.h>
 #include <sys/types.h>
 
-#include "ARMAssemblerProxy.h"
+#include "codeflinger/arm/ARMAssemblerProxy.h"
 
 namespace android {
 
@@ -171,29 +171,29 @@ void ARMAssemblerProxy::MUL(int cc, int s, int Rd, int Rm, int Rs) {
 }
 void ARMAssemblerProxy::UMULL(int cc, int s,
             int RdLo, int RdHi, int Rm, int Rs) {
-    mTarget->UMULL(cc, s, RdLo, RdHi, Rm, Rs); 
+    mTarget->UMULL(cc, s, RdLo, RdHi, Rm, Rs);
 }
 void ARMAssemblerProxy::UMUAL(int cc, int s,
             int RdLo, int RdHi, int Rm, int Rs) {
-    mTarget->UMUAL(cc, s, RdLo, RdHi, Rm, Rs); 
+    mTarget->UMUAL(cc, s, RdLo, RdHi, Rm, Rs);
 }
 void ARMAssemblerProxy::SMULL(int cc, int s,
             int RdLo, int RdHi, int Rm, int Rs) {
-    mTarget->SMULL(cc, s, RdLo, RdHi, Rm, Rs); 
+    mTarget->SMULL(cc, s, RdLo, RdHi, Rm, Rs);
 }
 void ARMAssemblerProxy::SMUAL(int cc, int s,
             int RdLo, int RdHi, int Rm, int Rs) {
-    mTarget->SMUAL(cc, s, RdLo, RdHi, Rm, Rs); 
+    mTarget->SMUAL(cc, s, RdLo, RdHi, Rm, Rs);
 }
 
 void ARMAssemblerProxy::B(int cc, uint32_t* pc) {
-    mTarget->B(cc, pc); 
+    mTarget->B(cc, pc);
 }
 void ARMAssemblerProxy::BL(int cc, uint32_t* pc) {
-    mTarget->BL(cc, pc); 
+    mTarget->BL(cc, pc);
 }
 void ARMAssemblerProxy::BX(int cc, int Rn) {
-    mTarget->BX(cc, Rn); 
+    mTarget->BX(cc, Rn);
 }
 void ARMAssemblerProxy::label(const char* theLabel) {
     mTarget->label(theLabel);
@@ -295,4 +295,3 @@ void ARMAssemblerProxy::UBFX(int cc, int Rd, int Rn, int lsb, int width) {
 }
 
 }; // namespace android
-
