@@ -143,7 +143,6 @@ static int autosuspend_earlysuspend_disable(void)
     if (ret < 0) {
         strerror_r(errno, buf, sizeof(buf));
         ALOGE("Error writing to %s: %s\n", EARLYSUSPEND_SYS_POWER_STATE, buf);
-        goto err;
     }
 
     if (wait_for_earlysuspend) {
@@ -157,9 +156,6 @@ static int autosuspend_earlysuspend_disable(void)
     ALOGV("autosuspend_earlysuspend_disable done\n");
 
     return 0;
-
-err:
-    return ret;
 }
 
 struct autosuspend_ops autosuspend_earlysuspend_ops = {
@@ -208,20 +204,9 @@ struct autosuspend_ops *autosuspend_earlysuspend_init(void)
         return NULL;
     }
 
-    ret = write(sPowerStatefd, "on", 2);
-    if (ret < 0) {
-        strerror_r(errno, buf, sizeof(buf));
-        ALOGW("Error writing 'on' to %s: %s\n", EARLYSUSPEND_SYS_POWER_STATE, buf);
-        goto err_write;
-    }
-
     ALOGI("Selected early suspend\n");
 
     start_earlysuspend_thread();
 
     return &autosuspend_earlysuspend_ops;
-
-err_write:
-    close(sPowerStatefd);
-    return NULL;
 }
