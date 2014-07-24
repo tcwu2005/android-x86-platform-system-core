@@ -182,7 +182,7 @@ static char** setup_dep(char *line)
 
             dep_num += LDM_INIT_DEP_NUM;
 
-            new = realloc(dep, dep_num);
+            new = realloc(dep, sizeof(char *) * dep_num);
 
             if (!new) {
                 ALOGE("failed to enlarge dep buffer\n");
