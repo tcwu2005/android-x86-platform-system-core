@@ -601,7 +601,7 @@ static void handle_generic_device_event(struct uevent *uevent)
         return;
 
     if (!strncmp(uevent->subsystem, "usb", 3)) {
-         if (!strcmp(uevent->subsystem, "usb")) {
+         if (!strcmp(uevent->subsystem, "usb") || !strcmp(uevent->subsystem, "usbmisc")) {
             if (uevent->device_name) {
                 /*
                  * create device node provided by kernel if present
