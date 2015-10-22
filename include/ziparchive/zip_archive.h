@@ -165,6 +165,10 @@ int32_t StartIteration(ZipArchiveHandle handle, void** cookie_ptr,
  */
 int32_t Next(void* cookie, ZipEntry* data, ZipEntryName *name);
 
+#ifdef ZIP_NO_INTEGRITY
+int32_t NextNoIntegrity(void* cookie, ZipEntry* data, ZipEntryName *name);
+#endif
+
 /*
  * End iteration over all entries of a zip file and frees the memory allocated
  * in StartIteration.

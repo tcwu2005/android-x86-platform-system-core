@@ -24,6 +24,9 @@ LOCAL_STATIC_LIBRARIES := libz
 LOCAL_SHARED_LIBRARIES := libutils libbase
 LOCAL_MODULE:= libziparchive
 LOCAL_CFLAGS := -Werror -Wall
+ifeq ($(ZIP_OPTIMIZATION_NO_INTEGRITY),true)
+    LOCAL_CFLAGS += -DZIP_NO_INTEGRITY
+endif
 LOCAL_CPPFLAGS := -Wold-style-cast
 include $(BUILD_STATIC_LIBRARY)
 
@@ -34,7 +37,10 @@ LOCAL_STATIC_LIBRARIES := libz libutils libbase
 LOCAL_MODULE:= libziparchive-host
 LOCAL_CFLAGS := -Werror
 ifneq ($(strip $(USE_MINGW)),)
-	LOCAL_CFLAGS += -mno-ms-bitfields
+    LOCAL_CFLAGS += -mno-ms-bitfields
+endif
+ifeq ($(ZIP_OPTIMIZATION_NO_INTEGRITY),true)
+    LOCAL_CFLAGS += -DZIP_NO_INTEGRITY
 endif
 LOCAL_MULTILIB := both
 include $(BUILD_HOST_STATIC_LIBRARY)
@@ -46,6 +52,9 @@ LOCAL_STATIC_LIBRARIES := libz libutils
 LOCAL_SHARED_LIBRARIES := liblog libbase
 LOCAL_MODULE:= libziparchive-host
 LOCAL_CFLAGS := -Werror
+ifeq ($(ZIP_OPTIMIZATION_NO_INTEGRITY),true)
+    LOCAL_CFLAGS += -DZIP_NO_INTEGRITY
+endif
 LOCAL_MULTILIB := both
 include $(BUILD_HOST_SHARED_LIBRARY)
 
@@ -54,6 +63,9 @@ include $(CLEAR_VARS)
 LOCAL_MODULE := ziparchive-tests
 LOCAL_CPP_EXTENSION := .cc
 LOCAL_CFLAGS := -Werror
+ifeq ($(ZIP_OPTIMIZATION_NO_INTEGRITY),true)
+    LOCAL_CFLAGS += -DZIP_NO_INTEGRITY
+endif
 LOCAL_SRC_FILES := zip_archive_test.cc entry_name_utils_test.cc
 LOCAL_SHARED_LIBRARIES := liblog libbase
 LOCAL_STATIC_LIBRARIES := libziparchive libz libutils
@@ -65,6 +77,9 @@ LOCAL_CPP_EXTENSION := .cc
 LOCAL_CFLAGS += \
     -Werror \
     -Wno-unnamed-type-template-args
+ifeq ($(ZIP_OPTIMIZATION_NO_INTEGRITY),true)
+    LOCAL_CFLAGS += -DZIP_NO_INTEGRITY
+endif
 LOCAL_SRC_FILES := zip_archive_test.cc entry_name_utils_test.cc
 LOCAL_SHARED_LIBRARIES := libziparchive-host liblog libbase
 LOCAL_STATIC_LIBRARIES := \
