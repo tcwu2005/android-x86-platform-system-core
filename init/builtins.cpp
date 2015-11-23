@@ -533,9 +533,14 @@ static int do_mount_all(const std::vector<std::string>& args) {
             ret = -1;
         }
     } else if (pid == 0) {
+        std::string filename_val;
+        if (!expand_props(args[1], &filename_val)) {
+            ERROR("mount_all: cannot expand '%s'\n", fstabfile);
+            _exit(-1);
+        }
         /* child, call fs_mgr_mount_all() */
         klog_set_level(6);  /* So we can see what fs_mgr_mount_all() does */
-        fstab = fs_mgr_read_fstab(fstabfile);
+        fstab = fs_mgr_read_fstab(filename_val.c_str());
         child_ret = fs_mgr_mount_all(fstab);
         fs_mgr_free_fstab(fstab);
         if (child_ret == -1) {
