@@ -546,9 +546,14 @@ int do_mount_all(int nargs, char **args)
             ret = -1;
         }
     } else if (pid == 0) {
+        char filename_val[PROP_VALUE_MAX];
+        if (expand_props(filename_val, args[1], sizeof(filename_val)) == -1) {
+            ERROR("mount_all: cannot expand '%s'\n", args[1]);
+            _exit(-1);
+        }
         /* child, call fs_mgr_mount_all() */
         klog_set_level(6);  /* So we can see what fs_mgr_mount_all() does */
-        fstab = fs_mgr_read_fstab(args[1]);
+        fstab = fs_mgr_read_fstab(filename_val);
         child_ret = fs_mgr_mount_all(fstab);
         fs_mgr_free_fstab(fstab);
         if (child_ret == -1) {
