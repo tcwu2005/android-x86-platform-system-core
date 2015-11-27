@@ -649,11 +649,13 @@ asocket*  host_service_to_socket(const char*  name, const char *serial)
 {
     if (!strcmp(name,"track-devices")) {
         return create_device_tracker();
-    } else if (!strncmp(name, "wait-for-", strlen("wait-for-"))) {
-        auto sinfo = reinterpret_cast<state_info*>(malloc(sizeof(state_info)));
+    } else if (android::base::StartsWith(name, "wait-for-")) {
+        name += strlen("wait-for-");
+
+        std::unique_ptr<state_info> sinfo(new state_info);
         if (sinfo == nullptr) {
             fprintf(stderr, "couldn't allocate state_info: %s", strerror(errno));
-            return NULL;
+            return nullptr;
         }
 
         if (serial)
@@ -661,29 +663,38 @@ asocket*  host_service_to_socket(const char*  name, const char *serial)
         else
             sinfo->serial = NULL;
 
-        name += strlen("wait-for-");
-
-        if (!strncmp(name, "local", strlen("local"))) {
+        if (android::base::StartsWith(name, "local")) {
+            name += strlen("local");
             sinfo->transport = kTransportLocal;
-            sinfo->state = CS_DEVICE;
-        } else if (!strncmp(name, "usb", strlen("usb"))) {
+        } else if (android::base::StartsWith(name, "usb")) {
+            name += strlen("usb");
             sinfo->transport = kTransportUsb;
-            sinfo->state = CS_DEVICE;
-        } else if (!strncmp(name, "any", strlen("any"))) {
+        } else if (android::base::StartsWith(name, "any")) {
+            name += strlen("any");
             sinfo->transport = kTransportAny;
-            sinfo->state = CS_DEVICE;
         } else {
-            free(sinfo);
-            return NULL;
+            return nullptr;
         }
 
-        int fd = create_service_thread(wait_for_state, sinfo);
+        if (!strcmp(name, "-device")) {
+            sinfo->state = CS_DEVICE;
+        } else if (!strcmp(name, "-recovery")) {
+            sinfo->state = CS_RECOVERY;
+        } else if (!strcmp(name, "-sideload")) {
+            sinfo->state = CS_SIDELOAD;
+        } else if (!strcmp(name, "-bootloader")) {
+            sinfo->state = CS_BOOTLOADER;
+        } else {
+            return nullptr;
+        }
+
+        int fd = create_service_thread(wait_for_state, sinfo.release());
         return create_local_socket(fd);
     } else if (!strncmp(name, "connect:", 8)) {
         const char *host = name + 8;
         int fd = create_service_thread(connect_service, (void *)host);
         return create_local_socket(fd);
     }
-    return NULL;
+    return nullptr;
 }
 #endif /* ADB_HOST */
