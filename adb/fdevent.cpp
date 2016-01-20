@@ -413,7 +413,9 @@ static void fdevent_process()
         if(events) {
             fde = fd_table[i];
             if(fde == 0)
-              FATAL("missing fde for fd %d\n", i);
+              // run here because the fde was just removed
+              // after rutern from select.
+              continue;
 
             fde->events |= events;
 
