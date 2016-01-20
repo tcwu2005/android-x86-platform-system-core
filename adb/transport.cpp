@@ -747,7 +747,6 @@ atransport* acquire_one_transport(int state, transport_type ttype,
     atransport *result = NULL;
     int ambiguous = 0;
 
-retry:
     if (error_out) *error_out = android::base::StringPrintf("device '%s' not found", serial);
 
     adb_mutex_lock(&transport_lock);
@@ -831,9 +830,6 @@ retry:
     if (result) {
         /* found one that we can take */
         if (error_out) *error_out = "success";
-    } else if (state != CS_ANY && (serial || !ambiguous)) {
-        adb_sleep_ms(1000);
-        goto retry;
     }
 
     return result;

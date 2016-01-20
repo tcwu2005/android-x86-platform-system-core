@@ -517,27 +517,54 @@ struct state_info {
     transport_type transport;
     char* serial;
     int state;
+    fdevent fde;
+    bool abort;
 };
+
+void wait_for_state_fd_func(int fd, unsigned ev, void *userdata)
+{
+    state_info* sinfo = reinterpret_cast<state_info*>(userdata);
+
+    if (ev & FDE_WRITE) {
+        /* don't care this event */
+        fdevent_del(&sinfo->fde, FDE_WRITE);
+    }
+
+    if (ev & (FDE_READ | FDE_ERROR)) {
+        D("client exited, stop waiting\n");
+        sinfo->abort = true;
+        fdevent_del(&sinfo->fde, FDE_READ | FDE_ERROR);
+    }
+}
 
 static void wait_for_state(int fd, void* cookie)
 {
     state_info* sinfo = reinterpret_cast<state_info*>(cookie);
+    atransport* t = NULL;
 
     D("wait_for_state %d\n", sinfo->state);
+    sinfo->abort = false;
+    fdevent_install(&sinfo->fde, fd, wait_for_state_fd_func, cookie);
+    fdevent_add(&sinfo->fde, FDE_READ | FDE_ERROR);
 
     std::string error_msg = "unknown error";
-    atransport* t = acquire_one_transport(sinfo->state, sinfo->transport, sinfo->serial, &error_msg);
+    while (!sinfo->abort) {
+        t = acquire_one_transport(sinfo->state, sinfo->transport, sinfo->serial, &error_msg);
+        if (t || (sinfo->state == CS_ANY))
+            break;
+        adb_sleep_ms(1000);
+    }
     if (t != 0) {
         SendOkay(fd);
     } else {
         SendFail(fd, error_msg);
     }
 
+    fdevent_remove(&sinfo->fde);
     if (sinfo->serial)
         free(sinfo->serial);
     free(sinfo);
-    adb_close(fd);
-    D("wait_for_state is done\n");
+    D("wait_for_state %s\n", sinfo->abort ? "aborted" : "done");
 }
 
 static void connect_device(const std::string& host, std::string* response) {
