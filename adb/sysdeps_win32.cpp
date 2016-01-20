@@ -27,6 +27,9 @@
 
 #include "adb.h"
 
+/* TODO: implemente fdevent synchronization for Windows platform. */
+ADB_MUTEX_DEFINE( fdevent_lock );
+
 extern void fatal(const char *fmt, ...);
 
 /* forward declarations */
