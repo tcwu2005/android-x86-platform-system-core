@@ -561,10 +561,11 @@ static void wait_for_state(int fd, void* cookie)
     }
 
     fdevent_remove(&sinfo->fde);
+
+    D("wait_for_state %s\n", sinfo->abort ? "aborted" : "done");
     if (sinfo->serial)
         free(sinfo->serial);
     free(sinfo);
-    D("wait_for_state %s\n", sinfo->abort ? "aborted" : "done");
 }
 
 static void connect_device(const std::string& host, std::string* response) {
