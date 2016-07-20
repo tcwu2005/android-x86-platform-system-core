@@ -8,6 +8,7 @@
 #endif
 ADB_MUTEX(socket_list_lock)
 ADB_MUTEX(transport_lock)
+ADB_MUTEX(fdevent_lock)
 #if ADB_HOST
 ADB_MUTEX(local_transports_lock)
 #endif

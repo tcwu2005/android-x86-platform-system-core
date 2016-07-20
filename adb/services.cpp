@@ -517,27 +517,55 @@ struct state_info {
     transport_type transport;
     char* serial;
     int state;
+    fdevent fde;
+    bool abort;
 };
+
+void wait_for_state_fd_func(int fd, unsigned ev, void *userdata)
+{
+    state_info* sinfo = reinterpret_cast<state_info*>(userdata);
+
+    if (ev & FDE_WRITE) {
+        /* don't care this event */
+        fdevent_del(&sinfo->fde, FDE_WRITE);
+    }
+
+    if (ev & (FDE_READ | FDE_ERROR)) {
+        D("client exited, stop waiting\n");
+        sinfo->abort = true;
+        fdevent_del(&sinfo->fde, FDE_READ | FDE_ERROR);
+    }
+}
 
 static void wait_for_state(int fd, void* cookie)
 {
     state_info* sinfo = reinterpret_cast<state_info*>(cookie);
+    atransport* t = NULL;
 
     D("wait_for_state %d\n", sinfo->state);
+    sinfo->abort = false;
+    fdevent_install(&sinfo->fde, fd, wait_for_state_fd_func, cookie);
+    fdevent_add(&sinfo->fde, FDE_READ | FDE_ERROR);
 
     std::string error_msg = "unknown error";
-    atransport* t = acquire_one_transport(sinfo->state, sinfo->transport, sinfo->serial, &error_msg);
+    while (!sinfo->abort) {
+        t = acquire_one_transport(sinfo->state, sinfo->transport, sinfo->serial, &error_msg);
+        if (t || (sinfo->state == CS_ANY))
+            break;
+        adb_sleep_ms(1000);
+    }
     if (t != 0) {
         SendOkay(fd);
     } else {
         SendFail(fd, error_msg);
     }
 
+    fdevent_remove(&sinfo->fde);
+
+    D("wait_for_state %s\n", sinfo->abort ? "aborted" : "done");
     if (sinfo->serial)
         free(sinfo->serial);
     free(sinfo);
-    adb_close(fd);
-    D("wait_for_state is done\n");
 }
 
 static void connect_device(const std::string& host, std::string* response) {
@@ -649,11 +677,13 @@ asocket*  host_service_to_socket(const char*  name, const char *serial)
 {
     if (!strcmp(name,"track-devices")) {
         return create_device_tracker();
-    } else if (!strncmp(name, "wait-for-", strlen("wait-for-"))) {
-        auto sinfo = reinterpret_cast<state_info*>(malloc(sizeof(state_info)));
+    } else if (android::base::StartsWith(name, "wait-for-")) {
+        name += strlen("wait-for-");
+
+        std::unique_ptr<state_info> sinfo(new state_info);
         if (sinfo == nullptr) {
             fprintf(stderr, "couldn't allocate state_info: %s", strerror(errno));
-            return NULL;
+            return nullptr;
         }
 
         if (serial)
@@ -661,29 +691,38 @@ asocket*  host_service_to_socket(const char*  name, const char *serial)
         else
             sinfo->serial = NULL;
 
-        name += strlen("wait-for-");
-
-        if (!strncmp(name, "local", strlen("local"))) {
+        if (android::base::StartsWith(name, "local")) {
+            name += strlen("local");
             sinfo->transport = kTransportLocal;
-            sinfo->state = CS_DEVICE;
-        } else if (!strncmp(name, "usb", strlen("usb"))) {
+        } else if (android::base::StartsWith(name, "usb")) {
+            name += strlen("usb");
             sinfo->transport = kTransportUsb;
-            sinfo->state = CS_DEVICE;
-        } else if (!strncmp(name, "any", strlen("any"))) {
+        } else if (android::base::StartsWith(name, "any")) {
+            name += strlen("any");
             sinfo->transport = kTransportAny;
-            sinfo->state = CS_DEVICE;
         } else {
-            free(sinfo);
-            return NULL;
+            return nullptr;
         }
 
-        int fd = create_service_thread(wait_for_state, sinfo);
+        if (!strcmp(name, "-device")) {
+            sinfo->state = CS_DEVICE;
+        } else if (!strcmp(name, "-recovery")) {
+            sinfo->state = CS_RECOVERY;
+        } else if (!strcmp(name, "-sideload")) {
+            sinfo->state = CS_SIDELOAD;
+        } else if (!strcmp(name, "-bootloader")) {
+            sinfo->state = CS_BOOTLOADER;
+        } else {
+            return nullptr;
+        }
+
+        int fd = create_service_thread(wait_for_state, sinfo.release());
         return create_local_socket(fd);
     } else if (!strncmp(name, "connect:", 8)) {
         const char *host = name + 8;
         int fd = create_service_thread(connect_service, (void *)host);
         return create_local_socket(fd);
     }
-    return NULL;
+    return nullptr;
 }
 #endif /* ADB_HOST */
