@@ -15,6 +15,7 @@
  */
 
 #include <ctype.h>
+#include <errno.h>
 #include <fcntl.h>
 #include <poll.h>
 #include <signal.h>
@@ -65,8 +66,12 @@ int ueventd_main(int argc, char **argv)
     ueventd_parse_config_file("/ueventd.rc");
     ueventd_parse_config_file(android::base::StringPrintf("/ueventd.%s.rc", hardware).c_str());
 
-    device_init();
+    pid_t pid = fork();
+    if (pid < 0) {
+        ERROR("could not fork to process firmware event: %s\n", strerror(errno));
+    }
 
+    device_init(pid == 0);
     pollfd ufd;
     ufd.events = POLLIN;
     ufd.fd = get_device_fd();
@@ -78,7 +83,7 @@ int ueventd_main(int argc, char **argv)
             continue;
         }
         if (ufd.revents & POLLIN) {
-            handle_device_fd();
+            handle_device_fd(pid == 0);
         }
     }
 

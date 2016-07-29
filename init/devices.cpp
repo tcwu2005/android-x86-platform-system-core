@@ -791,7 +791,7 @@ out:
     return ret;
 }
 
-static int do_load_module_by_device_modalias(const char *id)
+static int load_module_by_device_modalias(const char *id)
 {
     struct listnode *alias_node;
     struct module_alias_node *alias;
@@ -823,18 +823,6 @@ static int do_load_module_by_device_modalias(const char *id)
     }
 
     return ret;
-}
-
-static void load_module_by_device_modalias(const char *id)
-{
-    if (id) {
-        pid_t pid = fork();
-        if (!pid) {
-            exit(do_load_module_by_device_modalias(id));
-        } else if (pid < 0) {
-            ERROR("failed to fork for loading %s\n", id);
-        }
-    }
 }
 
 static void handle_deferred_module_loading()
@@ -870,7 +858,7 @@ int module_probe(const char *modalias)
             return -1;
     }
 
-    return modalias ? do_load_module_by_device_modalias(modalias) : -1;
+    return modalias ? load_module_by_device_modalias(modalias) : -1;
 }
 
 static void handle_module_loading(const char *modalias)
@@ -980,7 +968,7 @@ static void process_firmware_event(struct uevent *uevent)
     size_t i;
     int booting = is_booting();
 
-    INFO("firmware: loading '%s' for '%s'\n",
+    NOTICE("firmware: loading '%s' for '%s'\n",
          uevent->firmware, uevent->path);
 
     l = asprintf(&root, SYSFS_PREFIX"%s/", uevent->path);
@@ -1048,22 +1036,13 @@ root_free_out:
 
 static void handle_firmware_event(struct uevent *uevent)
 {
-    pid_t pid;
-
     if(strcmp(uevent->subsystem, "firmware"))
         return;
 
     if(strcmp(uevent->action, "add"))
         return;
 
-    /* we fork, to avoid making large memory allocations in init proper */
-    pid = fork();
-    if (!pid) {
-        process_firmware_event(uevent);
-        _exit(EXIT_SUCCESS);
-    } else if (pid < 0) {
-        ERROR("could not fork to process firmware event: %s\n", strerror(errno));
-    }
+    process_firmware_event(uevent);
 }
 
 static void parse_line_module_alias(struct parse_state *state, int nargs, char **args)
@@ -1205,7 +1184,7 @@ static int read_modules_blacklist() {
 }
 
 #define UEVENT_MSG_LEN  2048
-void handle_device_fd()
+void handle_device_fd(bool child)
 {
     char msg[UEVENT_MSG_LEN+2];
     int n;
@@ -1228,8 +1207,11 @@ void handle_device_fd()
             }
         }
 
-        handle_device_event(&uevent);
-        handle_firmware_event(&uevent);
+        if (child) {
+            handle_firmware_event(&uevent);
+        } else {
+            handle_device_event(&uevent);
+        }
     }
 }
 
@@ -1285,7 +1267,8 @@ void coldboot(const char *path)
     }
 }
 
-void device_init() {
+void device_init(bool child)
+{
     sehandle = NULL;
     if (is_selinux_enabled() > 0) {
         sehandle = selinux_android_file_context_handle();
@@ -1299,6 +1282,9 @@ void device_init() {
     }
     fcntl(device_fd, F_SETFL, O_NONBLOCK);
 
+    if (child) {
+        return; // don't do coldboot in child
+    }
     if (access(COLDBOOT_DONE, F_OK) == 0) {
         NOTICE("Skipping coldboot, already done!\n");
         return;
