@@ -19,8 +19,8 @@
 
 #include <sys/stat.h>
 
-extern void handle_device_fd();
-extern void device_init(void);
+extern void handle_device_fd(bool = false);
+extern void device_init(bool);
 extern int module_probe(const char *alias);
 extern int add_dev_perms(const char *name, const char *attr,
                          mode_t perm, unsigned int uid,

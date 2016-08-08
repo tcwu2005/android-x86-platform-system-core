@@ -724,9 +724,10 @@ static void handle_power_supply_state(struct charger *charger, int64_t now)
         /* Last cycle would have stopped at the extreme top of battery-icon
          * Need to show the correct level corresponding to capacity.
          */
-        kick_animation(charger->batt_anim);
         request_suspend(false);
         if (charger->next_pwr_check == -1) {
+            /* only kick animation once for charger unplug case. */
+            kick_animation(charger->batt_anim);
             charger->next_pwr_check = now + UNPLUGGED_SHUTDOWN_TIME;
             LOGW("[%" PRId64 "] device unplugged: shutting down in %" PRId64 " (@ %" PRId64 ")\n",
                  now, (int64_t)UNPLUGGED_SHUTDOWN_TIME, charger->next_pwr_check);

@@ -15,6 +15,7 @@
  */
 
 #include <ctype.h>
+#include <errno.h>
 #include <fcntl.h>
 #include <poll.h>
 #include <signal.h>
@@ -69,8 +70,12 @@ int ueventd_main(int argc, char **argv)
 
     property_get("ro.boot.bootdevice", boot_device);
 
-    device_init();
+    pid_t pid = fork();
+    if (pid < 0) {
+        ERROR("could not fork to process firmware event: %s\n", strerror(errno));
+    }
 
+    device_init(pid == 0);
     pollfd ufd;
     ufd.events = POLLIN;
     ufd.fd = get_device_fd();
@@ -82,7 +87,7 @@ int ueventd_main(int argc, char **argv)
             continue;
         }
         if (ufd.revents & POLLIN) {
-            handle_device_fd();
+            handle_device_fd(pid == 0);
         }
     }
 

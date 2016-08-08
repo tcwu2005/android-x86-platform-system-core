@@ -27,11 +27,12 @@
 #include "ext4.h"
 #include "make_ext4fs.h"
 #include "fs_mgr_priv.h"
+#include "cryptfs.h"
 
 extern struct fs_info info;     /* magic global from ext4_utils */
 extern void reset_ext4fs_info();
 
-static int format_ext4(char *fs_blkdev, char *fs_mnt_point, long long fs_length)
+static int format_ext4(char *fs_blkdev, char *fs_mnt_point, long long fs_length, bool crypt_footer)
 {
     uint64_t dev_sz;
     int fd, rc = 0;
@@ -55,6 +56,10 @@ static int format_ext4(char *fs_blkdev, char *fs_mnt_point, long long fs_length)
         info.len = fs_length;
     } else if (fs_length < 0) {
         info.len += fs_length;
+    }
+
+    if (crypt_footer) {
+        info.len -= CRYPT_FOOTER_OFFSET;
     }
 
     /* Use make_ext4fs_internal to avoid wiping an already-wiped partition. */
@@ -119,7 +124,7 @@ static int format_f2fs(char *fs_blkdev, long long fs_length)
     return rc;
 }
 
-int fs_mgr_do_format(struct fstab_rec *fstab)
+int fs_mgr_do_format(struct fstab_rec *fstab, bool crypt_footer)
 {
     int rc = -EINVAL;
 
@@ -128,7 +133,7 @@ int fs_mgr_do_format(struct fstab_rec *fstab)
     if (!strncmp(fstab->fs_type, "f2fs", 4)) {
         rc = format_f2fs(fstab->blk_device, fstab->length);
     } else if (!strncmp(fstab->fs_type, "ext4", 4)) {
-        rc = format_ext4(fstab->blk_device, fstab->mount_point, fstab->length);
+        rc = format_ext4(fstab->blk_device, fstab->mount_point, fstab->length, crypt_footer);
     } else {
         ERROR("File system type '%s' is not supported\n", fstab->fs_type);
     }

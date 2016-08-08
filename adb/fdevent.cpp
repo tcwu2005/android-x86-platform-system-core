@@ -44,6 +44,8 @@
 // of the shell's pseudo-tty master. I.e. force close it.
 int SHELL_EXIT_NOTIFY_FD = -1;
 
+ADB_MUTEX_DEFINE( fdevent_lock );
+
 static void fatal(const char *fn, const char *fmt, ...)
 {
     va_list ap;
@@ -210,6 +212,7 @@ static void fdevent_process()
         exit(1);
     }
 
+    adb_mutex_lock(&fdevent_lock);
     for(i = 0; i < n; i++) {
         struct epoll_event *ev = events + i;
         fde = ev->data.ptr;
@@ -229,6 +232,7 @@ static void fdevent_process()
             fdevent_plist_enqueue(fde);
         }
     }
+    adb_mutex_unlock(&fdevent_lock);
 }
 
 #else /* USE_SELECT */
@@ -364,13 +368,17 @@ static void fdevent_process()
     unsigned events;
     fd_set rfd, wfd, efd;
 
+    adb_mutex_lock(&fdevent_lock);
     memcpy(&rfd, &read_fds, sizeof(fd_set));
     memcpy(&wfd, &write_fds, sizeof(fd_set));
     memcpy(&efd, &error_fds, sizeof(fd_set));
 
     dump_all_fds("pre select()");
+    adb_mutex_unlock(&fdevent_lock);
 
     n = select(select_n, &rfd, &wfd, &efd, NULL);
+
+    adb_mutex_lock(&fdevent_lock);
     int saved_errno = errno;
     D("select() returned n=%d, errno=%d\n", n, n<0?saved_errno:0);
 
@@ -378,7 +386,7 @@ static void fdevent_process()
 
     if(n < 0) {
         switch(saved_errno) {
-        case EINTR: return;
+        case EINTR: goto unlock;
         case EBADF:
             // Can't trust the FD sets after an error.
             FD_ZERO(&wfd);
@@ -387,7 +395,7 @@ static void fdevent_process()
             break;
         default:
             D("Unexpected select() error=%d\n", saved_errno);
-            return;
+            goto unlock;
         }
     }
     if(n <= 0) {
@@ -405,7 +413,9 @@ static void fdevent_process()
         if(events) {
             fde = fd_table[i];
             if(fde == 0)
-              FATAL("missing fde for fd %d\n", i);
+              // run here because the fde was just removed
+              // after rutern from select.
+              continue;
 
             fde->events |= events;
 
@@ -416,6 +426,8 @@ static void fdevent_process()
             fdevent_plist_enqueue(fde);
         }
     }
+unlock:
+    adb_mutex_unlock(&fdevent_lock);
 }
 
 #endif
@@ -500,14 +512,16 @@ static fdevent *fdevent_plist_dequeue(void)
     return node;
 }
 
-static void fdevent_call_fdfunc(fdevent* fde)
+static void fdevent_call_fdfunc_locked(fdevent* fde)
 {
     unsigned events = fde->events;
     fde->events = 0;
     if(!(fde->state & FDE_PENDING)) return;
     fde->state &= (~FDE_PENDING);
     dump_fde(fde, "callback");
+    adb_mutex_unlock(&fdevent_lock);
     fde->func(fde->fd, events, fde->arg);
+    adb_mutex_lock(&fdevent_lock);
 }
 
 static void fdevent_subproc_event_func(int fd, unsigned ev,
@@ -523,6 +537,7 @@ static void fdevent_subproc_event_func(int fd, unsigned ev,
     fdevent *fde = fd_table[fd];
     fdevent_add(fde, FDE_READ);
 
+    adb_mutex_lock(&fdevent_lock);
     if(ev & FDE_READ){
       int subproc_fd;
 
@@ -532,17 +547,17 @@ static void fdevent_subproc_event_func(int fd, unsigned ev,
       if((subproc_fd < 0) || (subproc_fd >= fd_table_max)) {
           D("subproc_fd %d out of range 0, fd_table_max=%d\n",
             subproc_fd, fd_table_max);
-          return;
+          goto unlock;
       }
       fdevent *subproc_fde = fd_table[subproc_fd];
       if(!subproc_fde) {
           D("subproc_fd %d cleared from fd_table\n", subproc_fd);
-          return;
+          goto unlock;
       }
       if(subproc_fde->fd != subproc_fd) {
           // Already reallocated?
           D("subproc_fd %d != fd_table[].fd %d\n", subproc_fd, subproc_fde->fd);
-          return;
+          goto unlock;
       }
 
       subproc_fde->force_eof = 1;
@@ -556,17 +571,19 @@ static void fdevent_subproc_event_func(int fd, unsigned ev,
         // If there is data left, it will show up in the select().
         // This works because there is no other thread reading that
         // data when in this fd_func().
-        return;
+        goto unlock;
       }
 
       D("subproc_fde.state=%04x\n", subproc_fde->state);
       subproc_fde->events |= FDE_READ;
       if(subproc_fde->state & FDE_PENDING) {
-        return;
+        goto unlock;
       }
       subproc_fde->state |= FDE_PENDING;
-      fdevent_call_fdfunc(subproc_fde);
+      fdevent_call_fdfunc_locked(subproc_fde);
     }
+unlock:
+    adb_mutex_unlock(&fdevent_lock);
 }
 
 fdevent *fdevent_create(int fd, fd_func func, void *arg)
@@ -590,6 +607,7 @@ void fdevent_destroy(fdevent *fde)
 
 void fdevent_install(fdevent *fde, int fd, fd_func func, void *arg)
 {
+    adb_mutex_lock(&fdevent_lock);
     memset(fde, 0, sizeof(fdevent));
     fde->state = FDE_ACTIVE;
     fde->fd = fd;
@@ -604,10 +622,12 @@ void fdevent_install(fdevent *fde, int fd, fd_func func, void *arg)
     dump_fde(fde, "connect");
     fdevent_connect(fde);
     fde->state |= FDE_ACTIVE;
+    adb_mutex_unlock(&fdevent_lock);
 }
 
 void fdevent_remove(fdevent *fde)
 {
+    adb_mutex_lock(&fdevent_lock);
     if(fde->state & FDE_PENDING) {
         fdevent_plist_remove(fde);
     }
@@ -620,6 +640,7 @@ void fdevent_remove(fdevent *fde)
 
     fde->state = 0;
     fde->events = 0;
+    adb_mutex_unlock(&fdevent_lock);
 }
 
 
@@ -627,7 +648,11 @@ void fdevent_set(fdevent *fde, unsigned events)
 {
     events &= FDE_EVENTMASK;
 
-    if((fde->state & FDE_EVENTMASK) == events) return;
+    adb_mutex_lock(&fdevent_lock);
+    if((fde->state & FDE_EVENTMASK) == events) {
+        adb_mutex_unlock(&fdevent_lock);
+        return;
+    }
 
     if(fde->state & FDE_ACTIVE) {
         fdevent_update(fde, events);
@@ -647,6 +672,7 @@ void fdevent_set(fdevent *fde, unsigned events)
             fde->state &= (~FDE_PENDING);
         }
     }
+    adb_mutex_unlock(&fdevent_lock);
 }
 
 void fdevent_add(fdevent *fde, unsigned events)
@@ -688,8 +714,10 @@ void fdevent_loop()
 
         fdevent_process();
 
+        adb_mutex_lock(&fdevent_lock);
         while((fde = fdevent_plist_dequeue())) {
-            fdevent_call_fdfunc(fde);
+            fdevent_call_fdfunc_locked(fde);
         }
+        adb_mutex_unlock(&fdevent_lock);
     }
 }

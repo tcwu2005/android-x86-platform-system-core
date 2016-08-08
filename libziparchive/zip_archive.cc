@@ -712,6 +712,57 @@ static inline ssize_t ReadAtOffset(int fd, uint8_t* buf, size_t len,
 #endif
 }
 
+#ifdef ZIP_NO_INTEGRITY
+static int32_t FindEntryNoIntegrity(const ZipArchive* archive, const int ent,
+                         ZipEntry* data) {
+  const uint16_t nameLen = archive->hash_table[ent].name_length;
+
+  // Recover the start of the central directory entry from the filename
+  // pointer.  The filename is the first entry past the fixed-size data,
+  // so we can just subtract back from that.
+  const uint8_t* ptr = archive->hash_table[ent].name;
+  ptr -= sizeof(CentralDirectoryRecord);
+
+  // This is the base of our mmapped region, we have to sanity check that
+  // the name that's in the hash table is a pointer to a location within
+  // this mapped region.
+  const uint8_t* base_ptr = reinterpret_cast<const uint8_t*>(
+    archive->directory_map.getDataPtr());
+  if (ptr < base_ptr || ptr > base_ptr + archive->directory_map.getDataLength()) {
+    ALOGW("Zip: Invalid entry pointer");
+    return kInvalidOffset;
+  }
+
+  const CentralDirectoryRecord *cdr =
+      reinterpret_cast<const CentralDirectoryRecord*>(ptr);
+
+  // The offset of the start of the central directory in the zipfile.
+  // We keep this lying around so that we can sanity check all our lengths
+  // and our per-file structures.
+  const off64_t cd_offset = archive->directory_offset;
+
+  // Fill out the compression method, modification time, crc32
+  // and other interesting attributes from the central directory. These
+  // will later be compared against values from the local file header.
+  data->method = cdr->compression_method;
+  data->mod_time = cdr->last_mod_time;
+  data->crc32 = cdr->crc32;
+  data->compressed_length = cdr->compressed_size;
+  data->uncompressed_length = cdr->uncompressed_size;
+
+  // Figure out the local header offset from the central directory. The
+  // actual file data will begin after the local header and the name /
+  // extra comments.
+  const off64_t local_header_offset = cdr->local_file_header_offset;
+  if (local_header_offset + static_cast<off64_t>(sizeof(LocalFileHeader)) >= cd_offset) {
+    ALOGW("Zip: bad local hdr offset in zip");
+    return kInvalidOffset;
+  }
+
+  return 0;
+}
+#endif
+
 static int32_t FindEntry(const ZipArchive* archive, const int ent,
                          ZipEntry* data) {
   const uint16_t nameLen = archive->hash_table[ent].name_length;
@@ -880,6 +931,49 @@ struct IterationHandle {
     delete[] suffix;
   }
 };
+
+#ifdef ZIP_NO_INTEGRITY
+int32_t NextNoIntegrity(void* cookie, ZipEntry* data, ZipEntryName* name) {
+  IterationHandle* handle = reinterpret_cast<IterationHandle*>(cookie);
+  if (handle == NULL) {
+    return kInvalidHandle;
+  }
+
+  ZipArchive* archive = handle->archive;
+  if (archive == NULL || archive->hash_table == NULL) {
+    ALOGW("Zip: Invalid ZipArchiveHandle");
+    return kInvalidHandle;
+  }
+
+  const uint32_t currentOffset = handle->position;
+  const uint32_t hash_table_length = archive->hash_table_size;
+  const ZipEntryName *hash_table = archive->hash_table;
+
+  for (uint32_t i = currentOffset; i < hash_table_length; ++i) {
+    if (hash_table[i].name != NULL &&
+        (handle->prefix_len == 0 ||
+         (hash_table[i].name_length >= handle->prefix_len &&
+          memcmp(handle->prefix, hash_table[i].name, handle->prefix_len) == 0)) &&
+        (handle->suffix_len == 0 ||
+         (hash_table[i].name_length >= handle->suffix_len &&
+          memcmp(handle->suffix,
+                 hash_table[i].name + hash_table[i].name_length - handle->suffix_len,
+                 handle->suffix_len) == 0))) {
+      handle->position = (i + 1);
+      const int error = FindEntryNoIntegrity(archive, i, data);
+      if (!error) {
+        name->name = hash_table[i].name;
+        name->name_length = hash_table[i].name_length;
+      }
+
+      return error;
+    }
+  }
+
+  handle->position = 0;
+  return kIterationEnd;
+}
+#endif
 
 int32_t StartIteration(ZipArchiveHandle handle, void** cookie_ptr,
                        const ZipEntryName* optional_prefix,

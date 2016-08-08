@@ -25,31 +25,51 @@
 
 #include "adb.h"
 
+#if !ADB_HOST
+#include <syslog.h>
+#endif
+
+#define MAX_CONSECUTIVE_USB_ISSUES	3
+
 static int remote_read(apacket *p, atransport *t)
 {
+    static int consecutives_errors_count = 0;
     if(usb_read(t->usb, &p->msg, sizeof(amessage))){
         D("remote usb: read terminated (message)\n");
-        return -1;
+        goto err;
     }
 
     if(check_header(p)) {
         D("remote usb: check_header failed\n");
-        return -1;
+        goto err;
     }
 
     if(p->msg.data_length) {
         if(usb_read(t->usb, p->data, p->msg.data_length)){
             D("remote usb: terminated (data)\n");
-            return -1;
+            goto err;
         }
     }
 
     if(check_data(p)) {
         D("remote usb: check_data failed\n");
-        return -1;
+        goto err;
     }
 
+    consecutives_errors_count = 0;
     return 0;
+err:
+    if (++consecutives_errors_count > MAX_CONSECUTIVE_USB_ISSUES) {
+#if !ADB_HOST
+        /* Make sure we log the exit on the target */
+        syslog(LOG_CRIT, "%s:%d - remote usb: too many consecutives usb errors(%d), exits the process\n", __FILE__, __LINE__,  consecutives_errors_count);
+#else
+        fatal("%s:%d - remote usb: too many consecutives usb errors(%d), exits the process\n", __FILE__, __LINE__,  consecutives_errors_count);
+#endif
+        /* no need to generate a coredump or generate a crash here, the pb is functionnal */
+        exit(-1);
+    }
+    return -1;
 }
 
 static int remote_write(apacket *p, atransport *t)
