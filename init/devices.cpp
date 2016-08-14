@@ -809,13 +809,12 @@ static int load_module_by_device_modalias(const char *id)
                         /* cannot load module. try another one since
                          * there may be another match.
                          */
-                        INFO("cannot load module %s due to uevents\n",
-                             alias->name);
+                        NOTICE("failed to load %s for modalias %s\n",
+                             alias->name, id);
                     } else {
                         /* loading was successful */
                         INFO("loaded module %s due to uevents\n", alias->name);
                         ret = 0;
-                        break;
                     }
                 }
             }
