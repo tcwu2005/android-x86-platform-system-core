@@ -53,13 +53,16 @@ static asocket local_socket_closing_list = {
     .prev = &local_socket_closing_list,
 };
 
-static asocket *
-find_socket_in_list(asocket *list, unsigned local_id, unsigned peer_id)
+// Parse the global list of sockets to find one with id |local_id|.
+// If |peer_id| is not 0, also check that it is connected to a peer
+// with id |peer_id|. Returns an asocket handle on success, NULL on failure.
+asocket *find_local_socket(unsigned local_id, unsigned peer_id)
 {
     asocket *s;
     asocket *result = NULL;
 
-    for (s = list->next; s != list; s = s->next) {
+    adb_mutex_lock(&socket_list_lock);
+    for (s = local_socket_list.next; s != &local_socket_list; s = s->next) {
         if (s->id != local_id)
             continue;
         if (peer_id == 0 || (s->peer && s->peer->id == peer_id)) {
@@ -67,21 +70,8 @@ find_socket_in_list(asocket *list, unsigned local_id, unsigned peer_id)
         }
         break;
     }
-
-    return result;
-}
-
-
-// Parse the global list of sockets to find one with id |local_id|.
-// If |peer_id| is not 0, also check that it is connected to a peer
-// with id |peer_id|. Returns an asocket handle on success, NULL on failure.
-asocket *find_local_socket(unsigned local_id, unsigned peer_id)
-{
-    asocket *result = NULL;
-
-    adb_mutex_lock(&socket_list_lock);
-    result = find_socket_in_list(&local_socket_list, local_id, peer_id);
     adb_mutex_unlock(&socket_list_lock);
+
     return result;
 }
 
@@ -123,14 +113,10 @@ void remove_socket(asocket *s)
     }
 }
 
-// Note: after return, all sockets refer to transport @t should be closed.
-// (Because the atransport is going to removed.)
-// force_close && running flag are to implement this.
 void close_all_sockets(atransport *t)
 {
     asocket *s;
 
-    D("close all sockets of transport %p\n", t);
         /* this is a little gross, but since s->close() *will* modify
         ** the list out from under you, your options are limited.
         */
@@ -138,17 +124,7 @@ void close_all_sockets(atransport *t)
 restart:
     for(s = local_socket_list.next; s != &local_socket_list; s = s->next){
         if(s->transport == t || (s->peer && s->peer->transport == t)) {
-            // set force_close flag since transport is going to be removed.
-            // we need ensure the socket is closed after we return.
-            s->force_close = 1;
-            // avoid race condition with pending fdevent
-            if (s->running) {
-                // unlock to give a chance to close socket after running
-                adb_mutex_unlock(&socket_list_lock);
-                adb_sleep_ms(10); // sleep to relax cpu
-                adb_mutex_lock(&socket_list_lock);
-            } else
-                local_socket_close_locked(s);
+            local_socket_close_locked(s);
             goto restart;
         }
     }
@@ -217,18 +193,8 @@ static void local_socket_ready(asocket *s)
 
 static void local_socket_close(asocket *s)
 {
-    unsigned local_id = s->id;
-    unsigned peer_id = s->peer ? s->peer->id : 0;
-    asocket *sk;
-
     adb_mutex_lock(&socket_list_lock);
-    // we may race with close_all_sockets (called by input-thread),
-    // so need to check if socket already destoried.
-    sk = find_socket_in_list(&local_socket_list, local_id, peer_id);
-    if (!sk)
-        sk = find_socket_in_list(&local_socket_closing_list, local_id, peer_id);
-    if (sk)
-        local_socket_close_locked(s);
+    local_socket_close_locked(s);
     adb_mutex_unlock(&socket_list_lock);
 }
 
@@ -284,10 +250,9 @@ static void local_socket_close_locked(asocket *s)
     }
 
         /* If we are already closing, or if there are no
-        ** pending packets, or need force close it, then
-        ** destroy immediately.
+        ** pending packets, destroy immediately
         */
-    if (s->closing || s->force_close || s->pkt_first == NULL) {
+    if (s->closing || s->pkt_first == NULL) {
         int   id = s->id;
         local_socket_destroy(s);
         D("LS(%d): closed\n", id);
@@ -307,11 +272,7 @@ static void local_socket_close_locked(asocket *s)
 static void local_socket_event_func(int fd, unsigned ev, void* _s)
 {
     asocket* s = reinterpret_cast<asocket*>(_s);
-    s->running = 1;
     D("LS(%d): event_func(fd=%d(==%d), ev=%04x)\n", s->id, s->fd, fd, ev);
-
-    if (s->force_close)
-        goto out;
 
     /* put the FDE_WRITE processing before the FDE_READ
     ** in order to simplify the code.
@@ -326,7 +287,7 @@ static void local_socket_event_func(int fd, unsigned ev, void* _s)
                     ** be processed in the next iteration loop
                     */
                     if (errno == EAGAIN) {
-                        goto out;
+                        return;
                     }
                 } else if (r > 0) {
                     p->ptr += r;
@@ -335,7 +296,6 @@ static void local_socket_event_func(int fd, unsigned ev, void* _s)
                 }
 
                 D(" closing after write because r=%d and errno is %d\n", r, errno);
-                s->running = 0;
                 s->close(s);
                 return;
             }
@@ -354,7 +314,6 @@ static void local_socket_event_func(int fd, unsigned ev, void* _s)
         */
         if (s->closing) {
             D(" closing because 'closing' is set after write\n");
-            s->running = 0;
             s->close(s);
             return;
         }
@@ -413,7 +372,7 @@ static void local_socket_event_func(int fd, unsigned ev, void* _s)
                     ** this handler function will be called again
                     ** to process FDE_WRITE events.
                     */
-                goto out;
+                return;
             }
 
             if (r > 0) {
@@ -428,9 +387,7 @@ static void local_socket_event_func(int fd, unsigned ev, void* _s)
         if ((s->fde.force_eof && !r) || is_eof) {
             D(" closing because is_eof=%d r=%d s->fde.force_eof=%d\n",
               is_eof, r, s->fde.force_eof);
-            s->running = 0;
             s->close(s);
-            return;
         }
     }
 
@@ -441,13 +398,7 @@ static void local_socket_event_func(int fd, unsigned ev, void* _s)
             */
         D("LS(%d): FDE_ERROR (fd=%d)\n", s->id, s->fd);
 
-        goto out;
-    }
-out:
-    s->running = 0;
-    if (s->force_close) {
-        D("LS(%d): force closing (fd=%d)\n", s->id, s->fd);
-        s->close(s);
+        return;
     }
 }
 
@@ -455,7 +406,6 @@ asocket *create_local_socket(int fd)
 {
     asocket *s = reinterpret_cast<asocket*>(calloc(1, sizeof(asocket)));
     if (s == NULL) fatal("cannot allocate socket");
-    memset(s, 0, sizeof(asocket));
     s->fd = fd;
     s->enqueue = local_socket_enqueue;
     s->ready = local_socket_ready;
@@ -601,7 +551,6 @@ asocket *create_remote_socket(unsigned id, atransport *t)
     adisconnect* dis = &reinterpret_cast<aremotesocket*>(s)->disconnect;
 
     if (s == NULL) fatal("cannot allocate socket");
-    memset(s, 0, sizeof(asocket));
     s->id = id;
     s->enqueue = remote_socket_enqueue;
     s->ready = remote_socket_ready;
@@ -934,7 +883,6 @@ static asocket *create_smart_socket(void)
     D("Creating smart socket \n");
     asocket *s = reinterpret_cast<asocket*>(calloc(1, sizeof(asocket)));
     if (s == NULL) fatal("cannot allocate socket");
-    memset(s, 0, sizeof(asocket));
     s->enqueue = smart_socket_enqueue;
     s->ready = smart_socket_ready;
     s->shutdown = NULL;
