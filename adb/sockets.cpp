@@ -116,12 +116,12 @@ void remove_socket(asocket *s)
     }
 }
 
-// Note: after return, all sockets refer to transport @t should be closed.
-// (Because the atransport is going to removed.)
-// force_close && running flag are to implement this.
 void close_all_sockets(atransport *t)
 {
     asocket *s;
+    /* this is a little gross, but since s->close() *will* modify
+    ** the list out from under you, your options are limited.
+    */
     std::lock_guard<recursive_mutex> lock(local_socket_list_lock);
 restart:
     for (s = local_socket_list.next; s != &local_socket_list; s = s->next) {
@@ -238,10 +238,9 @@ static void local_socket_close(asocket* s) {
     }
 
         /* If we are already closing, or if there are no
-        ** pending packets, or need force close it, then
-        ** destroy immediately.
+        ** pending packets, destroy immediately
         */
-    if (s->closing || s->force_close || s->pkt_first == NULL) {
+    if (s->closing || s->pkt_first == NULL) {
         int   id = s->id;
         local_socket_destroy(s);
         D("LS(%d): closed\n", id);
@@ -261,11 +260,7 @@ static void local_socket_close(asocket* s) {
 static void local_socket_event_func(int fd, unsigned ev, void* _s)
 {
     asocket* s = reinterpret_cast<asocket*>(_s);
-    s->running = 1;
     D("LS(%d): event_func(fd=%d(==%d), ev=%04x)\n", s->id, s->fd, fd, ev);
-
-    if (s->force_close)
-        goto out;
 
     /* put the FDE_WRITE processing before the FDE_READ
     ** in order to simplify the code.
@@ -280,7 +275,7 @@ static void local_socket_event_func(int fd, unsigned ev, void* _s)
                     ** be processed in the next iteration loop
                     */
                     if (errno == EAGAIN) {
-                        goto out;
+                        return;
                     }
                 } else if (r > 0) {
                     p->ptr += r;
@@ -289,7 +284,6 @@ static void local_socket_event_func(int fd, unsigned ev, void* _s)
                 }
 
                 D(" closing after write because r=%d and errno is %d\n", r, errno);
-                s->running = 0;
                 s->close(s);
                 return;
             }
@@ -308,7 +302,6 @@ static void local_socket_event_func(int fd, unsigned ev, void* _s)
         */
         if (s->closing) {
             D(" closing because 'closing' is set after write\n");
-            s->running = 0;
             s->close(s);
             return;
         }
@@ -367,7 +360,7 @@ static void local_socket_event_func(int fd, unsigned ev, void* _s)
                     ** this handler function will be called again
                     ** to process FDE_WRITE events.
                     */
-                goto out;
+                return;
             }
 
             if (r > 0) {
@@ -382,9 +375,7 @@ static void local_socket_event_func(int fd, unsigned ev, void* _s)
         if ((s->fde.force_eof && !r) || is_eof) {
             D(" closing because is_eof=%d r=%d s->fde.force_eof=%d\n",
               is_eof, r, s->fde.force_eof);
-            s->running = 0;
             s->close(s);
-            return;
         }
     }
 
@@ -395,13 +386,7 @@ static void local_socket_event_func(int fd, unsigned ev, void* _s)
             */
         D("LS(%d): FDE_ERROR (fd=%d)\n", s->id, s->fd);
 
-        goto out;
-    }
-out:
-    s->running = 0;
-    if (s->force_close) {
-        D("LS(%d): force closing (fd=%d)\n", s->id, s->fd);
-        s->close(s);
+        return;
     }
 }
 
@@ -409,7 +394,6 @@ asocket *create_local_socket(int fd)
 {
     asocket *s = reinterpret_cast<asocket*>(calloc(1, sizeof(asocket)));
     if (s == NULL) fatal("cannot allocate socket");
-    memset(s, 0, sizeof(asocket));
     s->fd = fd;
     s->enqueue = local_socket_enqueue;
     s->ready = local_socket_ready;
@@ -555,7 +539,6 @@ asocket *create_remote_socket(unsigned id, atransport *t)
     adisconnect* dis = &reinterpret_cast<aremotesocket*>(s)->disconnect;
 
     if (s == NULL) fatal("cannot allocate socket");
-    memset(s, 0, sizeof(asocket));
     s->id = id;
     s->enqueue = remote_socket_enqueue;
     s->ready = remote_socket_ready;
@@ -888,7 +871,6 @@ static asocket *create_smart_socket(void)
     D("Creating smart socket \n");
     asocket *s = reinterpret_cast<asocket*>(calloc(1, sizeof(asocket)));
     if (s == NULL) fatal("cannot allocate socket");
-    memset(s, 0, sizeof(asocket));
     s->enqueue = smart_socket_enqueue;
     s->ready = smart_socket_ready;
     s->shutdown = NULL;

@@ -85,13 +85,6 @@ struct asocket {
         ** but packets are still queued for delivery
         */
     int    closing;
-        /* flag: set when this socket is running.
-        */
-    int    running;
-        /* flag: force close this socket. if this socket is running, other
-        ** thread set this flag to request close it.
-        */
-    int    force_close;
 
         /* flag: quit adbd when both ends close the
         ** local service socket
