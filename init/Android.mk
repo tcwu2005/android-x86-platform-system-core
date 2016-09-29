@@ -38,6 +38,7 @@ include $(BUILD_STATIC_LIBRARY)
 
 include $(CLEAR_VARS)
 LOCAL_CPPFLAGS := $(init_cflags)
+LOCAL_CPPFLAGS += -DTARGET_PRODUCT=\"$(PRODUCT_RELEASE_NAME)\"
 LOCAL_SRC_FILES:= \
     bootchart.cpp \
     builtins.cpp \
