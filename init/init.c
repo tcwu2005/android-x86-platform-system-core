@@ -59,6 +59,8 @@
 #include "ueventd.h"
 #include "watchdogd.h"
 
+#define INIT_LOG (1)
+
 struct selabel_handle *sehandle;
 struct selabel_handle *sehandle_prop;
 
@@ -1106,14 +1108,21 @@ int main(int argc, char **argv)
          * together in the initramdisk on / and then we'll
          * let the rc file figure out the rest.
          */
+#ifdef INIT_LOG        
+    printf(">>>>>Forbid to create /dev\n");
+#else
     mkdir("/dev", 0755);
+#endif
     mkdir("/proc", 0755);
     mkdir("/sys", 0755);
-
+#ifdef INIT_LOG
+    printf(">>>>>Forbid to mount /dev\n");
+#else
     mount("tmpfs", "/dev", "tmpfs", MS_NOSUID, "mode=0755");
     mkdir("/dev/pts", 0755);
     mkdir("/dev/socket", 0755);
     mount("devpts", "/dev/pts", "devpts", 0, NULL);
+#endif    
     mount("proc", "/proc", "proc", 0, NULL);
     mount("sysfs", "/sys", "sysfs", 0, NULL);
 
@@ -1126,7 +1135,21 @@ int main(int argc, char **argv)
          * Now that tmpfs is mounted on /dev, we can actually
          * talk to the outside world.
          */
+
+#ifdef INIT_LOG        
+  /* -- tcwu2005: I want more logs -- */
+    fflush(stdout);
+    fflush(stderr);
+    printf(">>>>>enable log to file\n");
+    int intlog = open("/init.log",/*O_APPEND|*/O_WRONLY|O_CREAT,0777);
+    printf(">>>>>fd of init.log is %d\n",intlog);
+    dup2(intlog,1);
+    dup2(intlog,2);
+    printf(">>>>>redirect stdio to file init.log-----------------\n");
+    close(intlog);
+#else
     open_devnull_stdio();
+#endif    
     klog_init();
     property_init();
 
@@ -1149,9 +1172,13 @@ int main(int argc, char **argv)
      * and therefore need their security context restored to the proper value.
      * This must happen before /dev is populated by ueventd.
      */
+#ifdef INIT_LOG
+    printf(">>>>>Forbit to restorecon /dev\n");
+#else
     restorecon("/dev");
     restorecon("/dev/socket");
     restorecon("/dev/__properties__");
+#endif    
     restorecon_recursive("/sys");
 
     is_charger = !strcmp(bootmode, "charger");
