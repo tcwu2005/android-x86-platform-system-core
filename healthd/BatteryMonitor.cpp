@@ -55,6 +55,8 @@ static int mapSysfsString(const char* str,
 }
 
 int BatteryMonitor::getBatteryStatus(const char* status) {
+    /* SVMP battery injection code
+
     int ret;
     struct sysfsStringEnumMap batteryStatusMap[] = {
         { "Unknown", BATTERY_STATUS_UNKNOWN },
@@ -72,9 +74,17 @@ int BatteryMonitor::getBatteryStatus(const char* status) {
     }
 
     return ret;
+
+    // Start SVMP battery injection code
+    */
+    const char* svmpBattery = status;
+    return BATTERY_STATUS_CHARGING;
+    // End SVMP battery injection code  
 }
 
 int BatteryMonitor::getBatteryHealth(const char* status) {
+    /* SVMP battery injection code
+
     int ret;
     struct sysfsStringEnumMap batteryHealthMap[] = {
         { "Unknown", BATTERY_HEALTH_UNKNOWN },
@@ -94,6 +104,12 @@ int BatteryMonitor::getBatteryHealth(const char* status) {
     }
 
     return ret;
+
+    // Start SVMP battery injection code
+    */
+    const char* svmpBattery = status;
+    return BATTERY_HEALTH_GOOD;
+    // End SVMP battery injection code
 }
 
 int BatteryMonitor::readFromFile(const String8& path, char* buf, size_t size) {
@@ -238,6 +254,15 @@ bool BatteryMonitor::update(void) {
             }
         }
     }
+    
+    // Start SVMP battery injection code
+    // all of the properties have been set, now let's inject our fake ones
+    props.chargerAcOnline = true;
+    props.batteryStatus = BATTERY_STATUS_CHARGING;
+    props.batteryHealth = BATTERY_HEALTH_GOOD;
+    props.batteryPresent = true;
+    props.batteryLevel = 100;
+    // End SVMP battery injection code
 
     logthis = !healthd_board_battery_update(&props);
 

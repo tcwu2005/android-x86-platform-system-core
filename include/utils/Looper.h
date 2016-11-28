@@ -22,6 +22,8 @@
 #include <utils/KeyedVector.h>
 #include <utils/Timers.h>
 
+#include <android/looper.h>
+
 #include <sys/epoll.h>
 
 namespace android {
