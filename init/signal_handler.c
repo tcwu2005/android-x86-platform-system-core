@@ -29,7 +29,7 @@
 #include "init.h"
 #include "util.h"
 #include "log.h"
-
+#define INIT_LOG (1)
 static int signal_fd = -1;
 static int signal_recv_fd = -1;
 
@@ -54,7 +54,9 @@ static int wait_for_one_process(int block)
     while ( (pid = waitpid(-1, &status, block ? 0 : WNOHANG)) == -1 && errno == EINTR );
     if (pid <= 0) return -1;
     INFO("waitpid returned pid %d, status = %08x\n", pid, status);
-
+#ifdef INIT_LOG
+    printf("waitpid returned pid %d, status = %08x\n", pid, status);
+#endif
     svc = service_find_by_pid(pid);
     if (!svc) {
         if (WIFEXITED(status)) {
@@ -70,10 +72,15 @@ static int wait_for_one_process(int block)
     }
 
     NOTICE("process '%s', pid %d exited\n", svc->name, pid);
-
+#ifdef INIT_LOG
+    printf("process '%s', pid %d exited\n", svc->name, pid);
+#endif
     if (!(svc->flags & SVC_ONESHOT) || (svc->flags & SVC_RESTART)) {
         kill(-pid, SIGKILL);
         NOTICE("process '%s' killing any children in process group\n", svc->name);
+#ifdef INIT_LOG
+    printf("process '%s' killing any children in process group\n", svc->name);
+#endif
     }
 
     /* remove any sockets we may have created */

@@ -207,6 +207,8 @@ static bool is_legal_property_name(const char* name, size_t namelen)
 
 int property_set(const char *name, const char *value)
 {
+    printf("property_service.c:property_set(%d),name(%s),value(%s)\n",__LINE__,name,value);
+    
     prop_info *pi;
     int ret;
 

@@ -32,7 +32,7 @@
 
 #include <cutils/iosched_policy.h>
 #include <cutils/list.h>
-
+#define INIT_LOG (1)
 static list_declare(service_list);
 static list_declare(action_list);
 static list_declare(action_queue);
@@ -563,6 +563,10 @@ void service_for_each_flags(unsigned matchflags,
     list_for_each(node, &service_list) {
         svc = node_to_item(node, struct service, slist);
         if (svc->flags & matchflags) {
+#ifdef INIT_LOG
+printf("init_parser.c:service_for_each_flags(%d),going to call (%s)\n",
+  __LINE__,svc->name);
+#endif
             func(svc);
         }
     }

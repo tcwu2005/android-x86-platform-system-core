@@ -953,6 +953,20 @@ static void handle_module_loading(const char *modalias)
 
 static void handle_device_event(struct uevent *uevent)
 {
+#if 1 //VERBOSE
+fflush(stdout);
+fflush(stderr);
+
+    printf(">>>>>handle_device_event,subsystem(%s),action(%s),name(%s),path(%s)\n"
+    ,uevent->subsystem,uevent->action,uevent->device_name,uevent->path
+    );
+
+/*    if( !strncmp(uevent->device_name,"binder",6) )
+        printf(">>>>handle_device_event, found a binder device (%s), ***no action***\n",
+            uevent->device_name);  */
+fflush(stdout);
+fflush(stderr);
+#endif
     if (!strcmp(uevent->action,"add")) {
         handle_module_loading(uevent->modalias);
     }

@@ -31,6 +31,8 @@
 #include "devices.h"
 #include "ueventd_parser.h"
 
+#define INIT_LOG (1)
+
 static char hardware[32];
 static unsigned revision = 0;
 
@@ -67,8 +69,23 @@ int ueventd_main(int argc, char **argv)
      * of ignoring SIGCHLD may be the better solution.
      */
     signal(SIGCHLD, SIG_IGN);
-
+#ifdef INIT_LOG
+char * magic ="UV121";
+    fflush(stdout);
+    fflush(stderr);
+    char * filename = "/ueventd.log";
+    printf(">>>>>magic#(%s)\n",magic);
+    printf(">>>>>ueventd_main,redirect stdio to (%s)\n",filename);
+    int log = open(filename,O_WRONLY|O_CREAT,0777);
+    printf(">>>>>fd of (%s) is (%d)\n",filename,log);
+    dup2(log,1);
+    dup2(log,2);
+    close(log);
+    fflush(stdout);
+    fflush(stderr);
+#else
     open_devnull_stdio();
+#endif
     klog_init();
 #if LOG_UEVENTS
     /* Ensure we're at a logging level that will show the events */

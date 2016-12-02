@@ -143,7 +143,11 @@ static void open_console()
 {
     int fd;
     if ((fd = open(console_name, O_RDWR)) < 0) {
+#ifdef INIT_LOG
+    printf("init.c:open_console(%d),open (%s) fail,skip open /dev/null , this might be dangerous...\n",__LINE__,console_name);
+#else
         fd = open("/dev/null", O_RDWR);
+#endif
     }
     ioctl(fd, TIOCSCTTY, 0);
     dup2(fd, 0);
@@ -289,14 +293,27 @@ void service_start(struct service *svc, const char *dynamic_args)
                       getpid(), svc->ioprio_class, svc->ioprio_pri, strerror(errno));
             }
         }
-
+#ifdef INIT_LOG
+printf("init.c:service_start(%d), needs_console=(%d)\n",__LINE__,needs_console);
+#endif
         if (needs_console) {
             setsid();
             open_console();
         } else {
+#ifdef INIT_LOG
+        printf("init.c:service_start(%d), skip calling zap_stdio\n",__LINE__);
+#else
             zap_stdio();
+#endif
         }
-
+#ifdef INIT_LOG
+        for (n = 0; svc->args[n]; n++) {
+            printf("init.c:service_start(%d),args[%d] = '%s'\n", __LINE__,n, svc->args[n]);
+        }
+        for (n = 0; ENV[n]; n++) {
+            printf("init.c:service_start(%d),env[%d] = '%s'\n", __LINE__,n, ENV[n]);
+        }
+#endif
 #if 0
         for (n = 0; svc->args[n]; n++) {
             INFO("args[%d] = '%s'\n", n, svc->args[n]);
@@ -575,6 +592,7 @@ void execute_one_command(void)
         cur_command = NULL;
         if (!cur_action)
             return;
+
         INFO("processing action %p (%s)\n", cur_action, cur_action->name);
         cur_command = get_first_command(cur_action);
     } else {
@@ -592,7 +610,17 @@ void execute_one_command(void)
             goto out;
         }
     }
+#ifdef INIT_LOG
+        printf("init.c:execute_one_command(%d),command(%s),action(%s) (%s:%d)\n",
+          __LINE__,cur_command->args[0], cur_action? cur_action->name : "",
+          cur_command->filename, cur_command->line);
+#endif    
     ret = cur_command->func(cur_command->nargs, args);
+#ifdef INIT_LOG
+        printf("init.c:execute_one_command(%d), command '%s' action=%s status=%d (%s:%d)\n",
+          __LINE__,cur_command->args[0],cur_action ? cur_action->name : "",
+          ret, cur_command->filename,cur_command->line);
+#endif
     if (klog_get_level() >= KLOG_INFO_LEVEL) {
         int i;
         char cmd_str[256] = "";
@@ -1108,21 +1136,25 @@ int main(int argc, char **argv)
          * together in the initramdisk on / and then we'll
          * let the rc file figure out the rest.
          */
-#ifdef INIT_LOG        
-    printf(">>>>>Forbid to create /dev\n");
-#else
+//#ifdef INIT_LOG        
+//    printf(">>>>>Forbid to create /dev\n");
+//#else
     mkdir("/dev", 0755);
-#endif
+//#endif
     mkdir("/proc", 0755);
     mkdir("/sys", 0755);
-#ifdef INIT_LOG
-    printf(">>>>>Forbid to mount /dev\n");
+#if 1
+    printf(">>>>>skip mount /dev\n");
 #else
     mount("tmpfs", "/dev", "tmpfs", MS_NOSUID, "mode=0755");
+#endif    
     mkdir("/dev/pts", 0755);
     mkdir("/dev/socket", 0755);
+#if 1
+    printf(">>>>>skip mount /dev/pts\n");   //use lxc's /dev/pts instead
+#else
     mount("devpts", "/dev/pts", "devpts", 0, NULL);
-#endif    
+#endif
     mount("proc", "/proc", "proc", 0, NULL);
     mount("sysfs", "/sys", "sysfs", 0, NULL);
 
@@ -1138,9 +1170,10 @@ int main(int argc, char **argv)
 
 #ifdef INIT_LOG        
   /* -- tcwu2005: I want more logs -- */
+char * magic="AAABBBCCC";
     fflush(stdout);
     fflush(stderr);
-    printf(">>>>>enable log to file\n");
+    printf(">>>>>enable log to file,magic(%s)\n",magic);
     int intlog = open("/init.log",/*O_APPEND|*/O_WRONLY|O_CREAT,0777);
     printf(">>>>>fd of init.log is %d\n",intlog);
     dup2(intlog,1);
@@ -1152,62 +1185,62 @@ int main(int argc, char **argv)
 #endif    
     klog_init();
     property_init();
-
+printf("init.c:main(%d)\n",__LINE__);
     get_hardware_name(hardware, &revision);
-
+printf("get_hardware_name(%s),revision(%d)\n",hardware,revision);
     process_kernel_cmdline();
-
+printf("init.c:main(%d)\n",__LINE__);
     if ((tmpdev = getenv("HWACCEL")) && *tmpdev == '0') {
         property_set("debug.egl.hw", tmpdev);
     }
     union selinux_callback cb;
     cb.func_log = log_callback;
     selinux_set_callback(SELINUX_CB_LOG, cb);
-
+printf("init.c:main(%d)\n",__LINE__);
     cb.func_audit = audit_callback;
     selinux_set_callback(SELINUX_CB_AUDIT, cb);
-
+printf("init.c:main(%d)\n",__LINE__);
     selinux_initialize();
     /* These directories were necessarily created before initial policy load
      * and therefore need their security context restored to the proper value.
      * This must happen before /dev is populated by ueventd.
      */
 #ifdef INIT_LOG
-    printf(">>>>>Forbit to restorecon /dev\n");
+    printf(">>>>>Forbit to restorecon /dev,/dev/socket,/dev/__properties__\n");
 #else
     restorecon("/dev");
     restorecon("/dev/socket");
     restorecon("/dev/__properties__");
 #endif    
     restorecon_recursive("/sys");
-
+printf("init.c:main(%d)\n",__LINE__);
     is_charger = !strcmp(bootmode, "charger");
-
+printf("init.c:main(%d)\n",__LINE__);
     INFO("property init\n");
     property_load_boot_defaults();
-
+printf("init.c:main(%d)\n",__LINE__);
     if (property_get("ro.boot.initrc", initrc_path) == 0)
         strcpy(initrc_path, "/init.rc");
     INFO("reading config file %s\n", initrc_path);
     init_parse_config_file(initrc_path);
-
+printf("init.c:main(%d)\n",__LINE__);
     action_for_each_trigger("early-init", action_add_queue_tail);
-
+printf("init.c:main(%d)\n",__LINE__);
     queue_builtin_action(wait_for_coldboot_done_action, "wait_for_coldboot_done");
     queue_builtin_action(mix_hwrng_into_linux_rng_action, "mix_hwrng_into_linux_rng");
     queue_builtin_action(keychord_init_action, "keychord_init");
     queue_builtin_action(console_init_action, "console_init");
-
+printf("init.c:main(%d)\n",__LINE__);
     /* execute all the boot actions to get us started */
     action_for_each_trigger("init", action_add_queue_tail);
-
+printf("init.c:main(%d)\n",__LINE__);
     /* Repeat mix_hwrng_into_linux_rng in case /dev/hw_random or /dev/random
      * wasn't ready immediately after wait_for_coldboot_done
      */
     queue_builtin_action(mix_hwrng_into_linux_rng_action, "mix_hwrng_into_linux_rng");
     queue_builtin_action(property_service_init_action, "property_service_init");
     queue_builtin_action(signal_init_action, "signal_init");
-
+printf("init.c:main(%d)\n",__LINE__);
     /* Don't mount filesystems or start core system services if in charger mode. */
     if (is_charger) {
         action_for_each_trigger("charger", action_add_queue_tail);
@@ -1217,20 +1250,25 @@ int main(int argc, char **argv)
     if ((tmpdev = getenv("DEBUG")) && *tmpdev) {
         property_set("debug.logcat", *tmpdev == '0' ? "0" : "1");
     }
-
+printf("init.c:main(%d)\n",__LINE__);
     /* run all property triggers based on current state of the properties */
     queue_builtin_action(queue_property_triggers_action, "queue_property_triggers");
-
+printf("init.c:main(%d)\n",__LINE__);
     /* run all device triggers based on current state of device nodes in /dev */
     queue_builtin_action(queue_device_triggers_action, "queue_device_triggers");
-
+printf("init.c:main(%d)\n",__LINE__);
 
 
 #if BOOTCHART
     queue_builtin_action(bootchart_init_action, "bootchart_init");
 #endif
-
+printf("init.c:main(%d)\n",__LINE__);
     for(;;) {
+#ifdef INIT_LOG
+        printf(">>>>>");       //heart beat of infinite loop in main function
+        fflush(stdout);
+        fflush(stderr);
+#endif         
         int nr, i, timeout = -1;
 
         execute_one_command();
@@ -1279,9 +1317,16 @@ int main(int argc, char **argv)
 #endif
 
         nr = poll(ufds, fd_count, timeout);
+
+#ifdef INIT_LOG
+        if (nr <= 0){
+            printf("poll ret (%d).....\n",nr);
+            continue;
+        }
+#else
         if (nr <= 0)
             continue;
-
+#endif
         for (i = 0; i < fd_count; i++) {
             if (ufds[i].revents & POLLIN) {
                 if (ufds[i].fd == get_property_set_fd())
@@ -1292,6 +1337,11 @@ int main(int argc, char **argv)
                     handle_signal();
             }
         }
+#ifdef INIT_LOG
+                printf("<<<<<\n");       //heart beat of infinite loop in main function
+                fflush(stdout);
+                fflush(stderr);
+#endif         
     }
 
     return 0;
